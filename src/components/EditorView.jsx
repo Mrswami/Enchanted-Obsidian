@@ -1,10 +1,10 @@
 import CodeMirror from '@uiw/react-codemirror'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import { languages } from '@codemirror/language-data'
-import { EditorView } from '@codemirror/view'
+import { EditorView as CodeMirrorView } from '@codemirror/view'
 
 // ── Custom cyber-noir CodeMirror theme ────────────────────────────────────────
-const cyberNoir = EditorView.theme({
+const cyberNoir = CodeMirrorView.theme({
   '&': {
     color: '#E8E8E8',
     backgroundColor: '#000000',
@@ -118,7 +118,7 @@ export default function EditorView({ activeFile, content, onChange }) {
             markdown({ base: markdownLanguage, codeLanguages: languages }),
             cyberNoir,
             wikilinkPlugin,
-            EditorView.lineWrapping,
+            CodeMirrorView.lineWrapping,
           ]}
           basicSetup={{
             lineNumbers: false,
@@ -128,7 +128,7 @@ export default function EditorView({ activeFile, content, onChange }) {
             bracketMatching: true,
             syntaxHighlighting: true,
             indentOnInput: true,
-            closeBrackets: true,
+            closeBrackets: false, // Disabling global to use custom or none for [
             drawSelection: true,
             dropCursor: false,
             allowMultipleSelections: false,
@@ -141,3 +141,4 @@ export default function EditorView({ activeFile, content, onChange }) {
     </main>
   )
 }
+

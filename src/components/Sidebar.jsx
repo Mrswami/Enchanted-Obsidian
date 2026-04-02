@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 const IconFile = () => (
@@ -61,21 +61,63 @@ function NewNoteModal({ onConfirm, onCancel }) {
 }
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
-export default function Sidebar({ files, activeFile, onOpenNote, onCreateNote, onDeleteNote }) {
+export default function Sidebar({ files, activeFile, currentSubPath, onOpenNote, onCreateNote, onDeleteNote, onRenameNote, onNavigateFolder }) {
   const [showModal, setShowModal] = useState(false)
   const [hoveredPath, setHoveredPath] = useState(null)
+  const [editingPath, setEditingPath] = useState(null)
+  const [editingTitle, setEditingTitle] = useState('')
 
   const handleCreate = (title) => {
     onCreateNote(title)
     setShowModal(false)
   }
 
+  const startRename = (file) => {
+    setEditingPath(file.path)
+    setEditingTitle(file.name)
+  }
+
+  const handleRenameSubmit = (file) => {
+    if (editingTitle.trim() && editingTitle.trim() !== file.name) {
+      onRenameNote(file, editingTitle.trim())
+    }
+    setEditingPath(null)
+  }
+
+  const handleFolderClick = (file) => {
+    // Relative path to notes directory
+    const parts = file.path.split(/[\\/]/)
+    const folderName = parts[parts.length - 1]
+    const nextSub = currentSubPath ? `${currentSubPath}/${folderName}` : folderName
+    onNavigateFolder(nextSub)
+  }
+
+  const goBack = () => {
+    if (!currentSubPath) return
+    const parts = currentSubPath.split('/')
+    parts.pop()
+    onNavigateFolder(parts.length > 0 ? parts.join('/') : null)
+  }
+
+  // Handle Global Key Events (F2)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'F2' && activeFile && !editingPath) {
+        startRename(activeFile)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [activeFile, editingPath])
+
   return (
     <>
       <aside className="sidebar">
         {/* Header */}
         <div className="sidebar-header">
-          <span className="sidebar-title">// VAULT</span>
+          <span className="sidebar-title">
+            {currentSubPath ? `// ${currentSubPath.toUpperCase()}` : '// VAULT'}
+          </span>
           <div className="sidebar-actions">
             <button
               id="btn-new-note"
@@ -87,6 +129,15 @@ export default function Sidebar({ files, activeFile, onOpenNote, onCreateNote, o
             </button>
           </div>
         </div>
+
+        {/* Back Button */}
+        {currentSubPath && (
+          <div style={{ padding: '6px 12px', borderBottom: '1px solid var(--border)' }}>
+            <button className="btn btn-ghost" onClick={goBack} style={{ fontSize: '9px', width: '100%', justifyContent: 'flex-start' }}>
+              [ BACK ]
+            </button>
+          </div>
+        )}
 
         {/* File Tree */}
         <div className="file-tree">
@@ -105,14 +156,32 @@ export default function Sidebar({ files, activeFile, onOpenNote, onCreateNote, o
                   activeFile?.path === file.path ? 'active' : '',
                   file.is_dir ? 'is-dir' : '',
                 ].join(' ')}
-                onClick={() => onOpenNote(file)}
+                onClick={() => file.is_dir ? handleFolderClick(file) : onOpenNote(file)}
                 onMouseEnter={() => setHoveredPath(file.path)}
                 onMouseLeave={() => setHoveredPath(null)}
                 title={file.path}
               >
                 {file.is_dir ? <IconFolder /> : <IconFile />}
-                <span className="truncate" style={{ flex: 1 }}>{file.name}</span>
-                {!file.is_dir && hoveredPath === file.path && (
+                
+                {editingPath === file.path ? (
+                  <input
+                    className="modal-input"
+                    style={{ padding: '2px 4px', fontSize: '11px', height: '22px' }}
+                    autoFocus
+                    value={editingTitle}
+                    onChange={e => setEditingTitle(e.target.value)}
+                    onBlur={() => handleRenameSubmit(file)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') handleRenameSubmit(file)
+                      if (e.key === 'Escape') setEditingPath(null)
+                    }}
+                    onClick={e => e.stopPropagation()}
+                  />
+                ) : (
+                  <span className="truncate" style={{ flex: 1 }}>{file.name}</span>
+                )}
+
+                {!file.is_dir && hoveredPath === file.path && editingPath !== file.path && (
                   <button
                     className="btn btn-ghost btn-icon"
                     style={{ padding: '2px 4px', boxShadow: 'none' }}

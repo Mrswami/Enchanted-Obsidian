@@ -46,11 +46,17 @@ async fn set_notes_dir(
     Ok(())
 }
 
-/// Lists all .md files (and folders) in the notes directory (non-recursive top level).
+/// Lists all .md files (and folders) in the specified directory (defaults to notes_dir).
 #[tauri::command]
-async fn read_notes_directory(state: State<'_, AppState>) -> Result<Vec<NoteFile>, String> {
-    let dir = state.notes_dir.lock().await.clone();
-    let path = PathBuf::from(&dir);
+async fn read_notes_directory(
+    state: State<'_, AppState>,
+    sub_path: Option<String>,
+) -> Result<Vec<NoteFile>, String> {
+    let base_dir = state.notes_dir.lock().await.clone();
+    let path = match sub_path {
+        Some(s) => PathBuf::from(&base_dir).join(s),
+        None => PathBuf::from(&base_dir),
+    };
 
     if !path.exists() {
         return Ok(vec![]);
@@ -136,6 +142,28 @@ async fn delete_note(path: String) -> Result<(), String> {
     fs::remove_file(&path).map_err(|e| e.to_string())
 }
 
+/// Renames a note file.
+#[tauri::command]
+async fn rename_note(
+    path: String,
+    new_name: String,
+) -> Result<String, String> {
+    let old_path = PathBuf::from(&path);
+    let parent = old_path.parent().ok_or("Invalid path")?;
+    
+    // Ensure new name has .md extension if it's a file
+    let clean_name = if new_name.to_lowercase().ends_with(".md") {
+        new_name
+    } else {
+        format!("{}.md", new_name)
+    };
+    
+    let new_path = parent.join(clean_name);
+    fs::rename(&old_path, &new_path).map_err(|e| e.to_string())?;
+    
+    Ok(new_path.to_string_lossy().to_string())
+}
+
 /// Scans a single file's content and returns its [[Wikilinks]].
 #[tauri::command]
 async fn get_note_links(content: String) -> Result<Vec<String>, String> {
@@ -197,6 +225,7 @@ pub fn run() {
             save_note,
             create_note,
             delete_note,
+            rename_note,
             get_note_links,
             get_full_link_index,
         ])

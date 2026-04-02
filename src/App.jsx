@@ -41,14 +41,20 @@ function App() {
   }, [])
 
   // ── Refresh Helpers ───────────────────────────────────────────────
-  const refreshFiles = useCallback(async () => {
+  const [currentSubPath, setCurrentSubPath] = useState(null)
+
+  const refreshFiles = useCallback(async (subPath = currentSubPath) => {
     try {
-      const entries = await invoke('read_notes_directory')
+      const entries = await invoke('read_notes_directory', { subPath })
       setFiles(entries)
     } catch (err) {
       console.error('Failed to read directory:', err)
     }
-  }, [])
+  }, [currentSubPath])
+
+  useEffect(() => {
+    refreshFiles(currentSubPath)
+  }, [currentSubPath, refreshFiles])
 
   const refreshIndex = useCallback(async () => {
     try {
@@ -116,6 +122,20 @@ function App() {
     }
   }, [activeFile, refreshFiles, refreshIndex])
 
+  // ── Rename Note ──────────────────────────────────────────────────
+  const renameNote = useCallback(async (file, newName) => {
+    try {
+      const newPath = await invoke('rename_note', { path: file.path, newName })
+      if (activeFile?.path === file.path) {
+        setActiveFile({ ...file, name: newName, path: newPath })
+      }
+      await refreshFiles()
+      await refreshIndex()
+    } catch (err) {
+      console.error('Failed to rename note:', err)
+    }
+  }, [activeFile, refreshFiles, refreshIndex])
+
   // ── Wikilink navigation ───────────────────────────────────────────
   const navigateToLink = useCallback((linkName) => {
     const found = files.find(
@@ -143,9 +163,12 @@ function App() {
       <Sidebar
         files={files}
         activeFile={activeFile}
+        currentSubPath={currentSubPath}
         onOpenNote={openNote}
         onCreateNote={createNote}
         onDeleteNote={deleteNote}
+        onRenameNote={renameNote}
+        onNavigateFolder={setCurrentSubPath}
       />
 
       {/* Editor */}
