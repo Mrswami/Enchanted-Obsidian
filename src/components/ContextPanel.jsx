@@ -106,13 +106,81 @@ function BacklinksTab({ linkIndex, activeFile, onNavigate }) {
   )
 }
 
+// ── Gemini AI Tab ─────────────────────────────────────────────────────────────
+function AiTab({ activeFile, linkIndex, onAiQuery }) {
+  const [query, setQuery] = useState('')
+  const [isTyping, setIsTyping] = useState(false)
+  const [prevResponse, setPrevResponse] = useState(null)
+
+  const handleAsk = async (e) => {
+    e.preventDefault()
+    if (!query.trim() || isTyping) return
+    
+    setIsTyping(true)
+    try {
+      const res = await onAiQuery(query)
+      setPrevResponse(res)
+      setQuery('')
+    } catch (err) {
+      setPrevResponse({ message: `// ERROR: ${err}`, actions: [] })
+    } finally {
+      setIsTyping(false)
+    }
+  }
+
+  return (
+    <div>
+      <div className="link-index-header">
+        // CYBERNETIC COGNITION
+      </div>
+      
+      <div className="ai-chat-history">
+        {prevResponse ? (
+          <div className="ai-message">
+            <div className="ai-message-sender">⬡ GEMINI</div>
+            <div className="ai-message-text">{prevResponse.message}</div>
+            {prevResponse.actions.length > 0 && (
+              <div className="ai-message-actions">
+                {prevResponse.actions.map((a, i) => (
+                  <div key={i} className="ai-action-tag">
+                    // EXECUTED: {a.type}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="link-index-empty" style={{ padding: '20px' }}>
+            System ready.<br />
+            Ask Gemini to summarize, organize,<br />
+            or create new notes for you.
+          </div>
+        )}
+      </div>
+
+      <form className="ai-input-wrap" onSubmit={handleAsk}>
+        <input 
+          className={`modal-input ${isTyping ? 'loading' : ''}`}
+          placeholder={isTyping ? "Thinking..." : "Command Gemini..."}
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          disabled={isTyping}
+          autoFocus
+        />
+        <div className="ai-input-hint">PROMPT ENGINE // V1.5 PRO</div>
+      </form>
+    </div>
+  )
+}
+
 // ── Context Panel ─────────────────────────────────────────────────────────────
-export default function ContextPanel({ linkIndex, activeFile, onNavigate }) {
+export default function ContextPanel({ linkIndex, activeFile, onNavigate, onAiQuery }) {
   const [activeTab, setActiveTab] = useState('index')
 
   const tabs = [
     { id: 'index', label: 'Index' },
     { id: 'backlinks', label: 'Links' },
+    { id: 'ai', label: 'Gemini' },
   ]
 
   return (
@@ -143,6 +211,13 @@ export default function ContextPanel({ linkIndex, activeFile, onNavigate }) {
             linkIndex={linkIndex}
             activeFile={activeFile}
             onNavigate={onNavigate}
+          />
+        )}
+        {activeTab === 'ai' && (
+          <AiTab
+            linkIndex={linkIndex}
+            activeFile={activeFile}
+            onAiQuery={onAiQuery}
           />
         )}
       </div>

@@ -13,8 +13,7 @@ const cyberNoir = CodeMirrorView.theme({
   },
   '.cm-content': {
     caretColor: '#00FF41',
-    padding: '24px 48px',
-    maxWidth: '760px',
+    padding: '24px 32px', /* Tightened internal padding */
   },
   '.cm-cursor': { borderLeftColor: '#00FF41', borderLeftWidth: '2px' },
   '.cm-selectionBackground, ::selection': { backgroundColor: '#1A2A1A !important' },
@@ -87,12 +86,13 @@ export default function EditorView({ activeFile, content, onChange }) {
   if (!activeFile) {
     return (
       <main className="editor-panel">
-        <div className="editor-no-file">
-          <div className="editor-no-file-logo">⬡</div>
-          <div className="editor-no-file-hint">// SELECT A NOTE TO BEGIN</div>
-          <div className="editor-no-file-hint" style={{ color: '#333', fontSize: '10px' }}>
-            or create a new note from the vault panel
+        <div className="editor-no-file" style={{ border: '1px solid var(--border)', margin: '40px', padding: '40px', background: 'var(--bg-panel)' }}>
+          <div className="editor-no-file-logo" style={{ color: 'var(--accent)', fontSize: '48px', marginBottom: '24px' }}>⬡</div>
+          <div className="editor-no-file-hint" style={{ color: 'var(--text-main)', letterSpacing: '0.2em' }}>// INITIALIZING ENCHANTED_VAULT...</div>
+          <div className="editor-no-file-hint" style={{ color: 'var(--text-muted)', fontSize: '9px', marginTop: '16px' }}>
+            SELECT A SECTOR FROM THE SIDEBAR TO BEGIN EDITING
           </div>
+          <div style={{ marginTop: '40px', height: '1px', width: '60px', background: 'var(--border)' }}></div>
         </div>
       </main>
     )
@@ -128,7 +128,7 @@ export default function EditorView({ activeFile, content, onChange }) {
             bracketMatching: true,
             syntaxHighlighting: true,
             indentOnInput: true,
-            closeBrackets: false, // Disabling global to use custom or none for [
+            closeBrackets: false,
             drawSelection: true,
             dropCursor: false,
             allowMultipleSelections: false,
@@ -138,6 +138,17 @@ export default function EditorView({ activeFile, content, onChange }) {
           }}
         />
       </div>
+
+      {/* Status Bar */}
+      <footer className="status-bar">
+        <div className="status-item">
+          L_COUNT: {content.split('\n').length} // W_COUNT: {content.trim() ? content.trim().split(/\s+/).length : 0} // CH_COUNT: {content.length}
+        </div>
+        <div className="status-item" style={{ marginLeft: 'auto' }}>
+          <span className="status-indicator" />
+          SYNC: SECURE
+        </div>
+      </footer>
     </main>
   )
 }

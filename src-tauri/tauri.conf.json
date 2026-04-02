@@ -27,12 +27,7 @@
     }
   },
   "plugins": {
-    "fs": {
-      "scope": {
-        "allow": ["$DOCUMENT/**", "$HOME/**"],
-        "deny": []
-      }
-    }
+    "fs": {}
   },
   "bundle": {
     "active": true,

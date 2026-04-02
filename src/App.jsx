@@ -4,6 +4,7 @@ import { listen } from '@tauri-apps/api/event'
 import Sidebar from './components/Sidebar'
 import EditorView from './components/EditorView'
 import ContextPanel from './components/ContextPanel'
+import Scanner from './components/Scanner'
 import './index.css'
 import './App.css'
 
@@ -14,6 +15,7 @@ function App() {
   const [noteContent, setNoteContent] = useState('')
   const [linkIndex, setLinkIndex] = useState({})
   const [saveStatus, setSaveStatus] = useState('saved') // 'saved' | 'saving'
+  const [showScanner, setShowScanner] = useState(false)
   const saveTimer = useRef(null)
 
   // ── Bootstrap ────────────────────────────────────────────────────
@@ -96,12 +98,19 @@ function App() {
   }, [activeFile, refreshIndex])
 
   // ── Create New Note ───────────────────────────────────────────────
-  const createNote = useCallback(async (title) => {
+  const createNote = useCallback(async (title, initialContent = '') => {
     try {
       const path = await invoke('create_note', { title })
       const newFile = { name: title, path, is_dir: false }
       await refreshFiles()
-      await openNote(newFile)
+      
+      if (initialContent) {
+        await invoke('save_note', { path, content: initialContent })
+        setActiveFile(newFile)
+        setNoteContent(initialContent)
+      } else {
+        await openNote(newFile)
+      }
     } catch (err) {
       console.error('Failed to create note:', err)
     }
@@ -136,6 +145,36 @@ function App() {
     }
   }, [activeFile, refreshFiles, refreshIndex])
 
+  // ── AI Command Handler ───────────────────────────────────────────
+  const handleAiQuery = useCallback(async (query) => {
+    // Collect context (current note content + link graph)
+    const context = `
+      Current active note: ${activeFile?.name || 'None'}
+      Current content: ${noteContent.substring(0, 500)}
+      Link Index keys: ${Object.keys(linkIndex).join(', ')}
+    `
+    try {
+      const response = await invoke('ask_ai', { query, context })
+      
+      // Execute actions returned by the AI
+      for (const action of response.actions) {
+        if (action.type === 'CreateNote') {
+          await createNote(action.payload.title)
+          // You might want to update the content too, but for now we just create
+        } else if (action.type === 'SearchNotes') {
+          // Future: trigger a search UI
+        } else if (action.type === 'ReadNote') {
+          const found = files.find(f => f.path === action.payload.path)
+          if (found) await openNote(found)
+        }
+      }
+      return response
+    } catch (err) {
+      console.error('AI Query failed:', err)
+      throw err
+    }
+  }, [activeFile, noteContent, linkIndex, createNote, openNote, files])
+
   // ── Wikilink navigation ───────────────────────────────────────────
   const navigateToLink = useCallback((linkName) => {
     const found = files.find(
@@ -148,42 +187,57 @@ function App() {
     <div className="app-shell">
       {/* Title Bar */}
       <header className="titlebar">
-        <span className="titlebar-logo">⬡ EnchantedObsidian</span>
+        <span className="titlebar-logo">⬡ ENCHANTED_OBSIDIAN</span>
         <span className="titlebar-sep">//</span>
         <span className="titlebar-path">{activeFile ? activeFile.path : notesDir}</span>
         <div className="titlebar-status">
-          <span className="titlebar-path">
-            {saveStatus === 'saving' ? 'saving...' : activeFile ? 'saved' : ''}
+          <span className="titlebar-path" style={{ fontSize: '9px', opacity: 0.5 }}>
+            {saveStatus === 'saving' ? 'SYNCING...' : activeFile ? 'SECURE' : ''}
           </span>
           {activeFile && <div className={`status-dot ${saveStatus}`} />}
         </div>
       </header>
 
-      {/* Sidebar */}
-      <Sidebar
-        files={files}
-        activeFile={activeFile}
-        currentSubPath={currentSubPath}
-        onOpenNote={openNote}
-        onCreateNote={createNote}
-        onDeleteNote={deleteNote}
-        onRenameNote={renameNote}
-        onNavigateFolder={setCurrentSubPath}
-      />
+      <div className="app-main">
+        {/* Sidebar */}
+        <Sidebar
+          files={files}
+          activeFile={activeFile}
+          currentSubPath={currentSubPath}
+          onOpenNote={openNote}
+          onCreateNote={createNote}
+          onDeleteNote={deleteNote}
+          onRenameNote={renameNote}
+          onNavigateFolder={setCurrentSubPath}
+          onOpenScanner={() => setShowScanner(true)}
+        />
 
-      {/* Editor */}
-      <EditorView
-        activeFile={activeFile}
-        content={noteContent}
-        onChange={handleContentChange}
-      />
+        {/* Editor */}
+        <EditorView
+          activeFile={activeFile}
+          content={noteContent}
+          onChange={handleContentChange}
+        />
 
-      {/* Context Panel */}
-      <ContextPanel
-        linkIndex={linkIndex}
-        activeFile={activeFile}
-        onNavigate={navigateToLink}
-      />
+        {/* Context Panel */}
+        <ContextPanel
+          linkIndex={linkIndex}
+          activeFile={activeFile}
+          onNavigate={navigateToLink}
+          onAiQuery={handleAiQuery}
+        />
+      </div>
+
+      {showScanner && (
+        <Scanner 
+          onScanComplete={(ocrText) => {
+            const title = `SCAN-${new Date().getTime()}.md`
+            createNote(title, ocrText)
+            setShowScanner(false)
+          }}
+          onCancel={() => setShowScanner(false)}
+        />
+      )}
     </div>
   )
 }

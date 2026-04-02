@@ -1,5 +1,6 @@
 mod indexer;
 mod watcher;
+mod ai;
 
 use indexer::{build_full_index, extract_wikilinks, NoteLinkData};
 use serde::{Deserialize, Serialize};
@@ -13,6 +14,7 @@ use tokio::sync::Mutex;
 
 pub struct AppState {
     pub notes_dir: Mutex<String>,
+    pub ai_manager: Mutex<Option<ai::AiManager>>,
 }
 
 // ─── Serializable Types ──────────────────────────────────────────────────────
@@ -180,6 +182,31 @@ async fn get_full_link_index(
     Ok(build_full_index(&dir))
 }
 
+/// Asks Gemini a question with full system context.
+#[tauri::command]
+async fn ask_ai(
+    state: State<'_, AppState>,
+    query: String,
+    context: String,
+) -> Result<ai::AiResponse, String> {
+    let mgr_lock = state.ai_manager.lock().await;
+    let mgr = mgr_lock.as_ref().ok_or("AI Manager not initialized. Check your .env file.")?;
+    
+    mgr.ask(&query, &context).await
+}
+
+/// Processes an image via Gemini Vision for OCR.
+#[tauri::command]
+async fn process_ocr_image(
+    state: State<'_, AppState>,
+    base64_data: String,
+) -> Result<String, String> {
+    let mgr_lock = state.ai_manager.lock().await;
+    let mgr = mgr_lock.as_ref().ok_or("AI Manager not initialized. Check your .env file.")?;
+    
+    mgr.process_image(&base64_data).await
+}
+
 // ─── Entry Point ─────────────────────────────────────────────────────────────
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -191,22 +218,16 @@ pub fn run() {
         .to_string_lossy()
         .to_string();
 
-    tauri::Builder::default()
-        .setup(|app| {
-            if cfg!(debug_assertions) {
-                app.handle().plugin(
-                    tauri_plugin_log::Builder::default()
-                        .level(log::LevelFilter::Info)
-                        .build(),
-                )?;
-            }
+    let ai_mgr = ai::AiManager::new().ok();
 
+    tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_log::Builder::default().build())
+        .setup(|app| {
             // Ensure notes directory exists
-            let notes_dir = app
-                .state::<AppState>()
-                .notes_dir
-                .blocking_lock()
-                .clone();
+            let notes_dir = app.state::<AppState>().notes_dir.blocking_lock().clone();
             let _ = fs::create_dir_all(&notes_dir);
 
             // Start the file watcher
@@ -216,6 +237,7 @@ pub fn run() {
         })
         .manage(AppState {
             notes_dir: Mutex::new(default_notes_dir),
+            ai_manager: Mutex::new(ai_mgr),
         })
         .invoke_handler(tauri::generate_handler![
             get_notes_dir,
@@ -228,6 +250,8 @@ pub fn run() {
             rename_note,
             get_note_links,
             get_full_link_index,
+            ask_ai,
+            process_ocr_image,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

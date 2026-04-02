@@ -1,3 +1,19 @@
+# Industrial Hardening
+node_modules
+dist
+dist-ssr
+target/
+src-tauri/target/
+src-tauri/gen/
+*.local
+.env
+.env.*
+!.env.example
+
+# App Data
+*.sqlite
+*.sqlite-journal
+
 # Logs
 logs
 *.log
@@ -6,11 +22,6 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
-
-node_modules
-dist
-dist-ssr
-*.local
 
 # Editor directories and files
 .vscode/*

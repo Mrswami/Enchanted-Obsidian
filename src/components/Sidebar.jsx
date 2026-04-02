@@ -61,7 +61,7 @@ function NewNoteModal({ onConfirm, onCancel }) {
 }
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
-export default function Sidebar({ files, activeFile, currentSubPath, onOpenNote, onCreateNote, onDeleteNote, onRenameNote, onNavigateFolder }) {
+export default function Sidebar({ files, activeFile, currentSubPath, onOpenNote, onCreateNote, onDeleteNote, onRenameNote, onNavigateFolder, onOpenScanner }) {
   const [showModal, setShowModal] = useState(false)
   const [hoveredPath, setHoveredPath] = useState(null)
   const [editingPath, setEditingPath] = useState(null)
@@ -118,10 +118,17 @@ export default function Sidebar({ files, activeFile, currentSubPath, onOpenNote,
           <span className="sidebar-title">
             {currentSubPath ? `// ${currentSubPath.toUpperCase()}` : '// VAULT'}
           </span>
-          <div className="sidebar-actions">
+          <div className="command-strip">
+            <button
+               className="command-btn command-btn-lime"
+               title="Scan Image"
+               onClick={onOpenScanner}
+            >
+              [ SCAN ]
+            </button>
             <button
               id="btn-new-note"
-              className="btn btn-icon btn-lime"
+              className="command-btn"
               title="New Note"
               onClick={() => setShowModal(true)}
             >
