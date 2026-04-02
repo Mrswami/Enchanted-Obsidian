@@ -1,120 +1,167 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { invoke } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
+import Sidebar from './components/Sidebar'
+import EditorView from './components/EditorView'
+import ContextPanel from './components/ContextPanel'
+import './index.css'
 import './App.css'
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [notesDir, setNotesDir] = useState('')
+  const [files, setFiles] = useState([])
+  const [activeFile, setActiveFile] = useState(null)   // { name, path }
+  const [noteContent, setNoteContent] = useState('')
+  const [linkIndex, setLinkIndex] = useState({})
+  const [saveStatus, setSaveStatus] = useState('saved') // 'saved' | 'saving'
+  const saveTimer = useRef(null)
+
+  // ── Bootstrap ────────────────────────────────────────────────────
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const dir = await invoke('get_notes_dir')
+        setNotesDir(dir)
+        await refreshFiles()
+        await refreshIndex()
+      } catch (err) {
+        console.error('Init error:', err)
+      }
+    }
+    init()
+  }, [])
+
+  // ── File Watcher Listener ─────────────────────────────────────────
+  useEffect(() => {
+    const unlisten = listen('file-changed', () => {
+      refreshFiles()
+      refreshIndex()
+    })
+    return () => { unlisten.then(fn => fn()) }
+  }, [])
+
+  // ── Refresh Helpers ───────────────────────────────────────────────
+  const refreshFiles = useCallback(async () => {
+    try {
+      const entries = await invoke('read_notes_directory')
+      setFiles(entries)
+    } catch (err) {
+      console.error('Failed to read directory:', err)
+    }
+  }, [])
+
+  const refreshIndex = useCallback(async () => {
+    try {
+      const idx = await invoke('get_full_link_index')
+      setLinkIndex(idx)
+    } catch (err) {
+      console.error('Failed to build link index:', err)
+    }
+  }, [])
+
+  // ── Open a Note ───────────────────────────────────────────────────
+  const openNote = useCallback(async (file) => {
+    if (file.is_dir) return
+    try {
+      const content = await invoke('read_note', { path: file.path })
+      setActiveFile(file)
+      setNoteContent(content)
+      setSaveStatus('saved')
+    } catch (err) {
+      console.error('Failed to open note:', err)
+    }
+  }, [])
+
+  // ── Auto-Save (debounced 1.5s) ────────────────────────────────────
+  const handleContentChange = useCallback((value) => {
+    setNoteContent(value)
+    setSaveStatus('saving')
+    clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(async () => {
+      if (!activeFile) return
+      try {
+        await invoke('save_note', { path: activeFile.path, content: value })
+        setSaveStatus('saved')
+        refreshIndex()
+      } catch (err) {
+        console.error('Auto-save failed:', err)
+      }
+    }, 1500)
+  }, [activeFile, refreshIndex])
+
+  // ── Create New Note ───────────────────────────────────────────────
+  const createNote = useCallback(async (title) => {
+    try {
+      const path = await invoke('create_note', { title })
+      const newFile = { name: title, path, is_dir: false }
+      await refreshFiles()
+      await openNote(newFile)
+    } catch (err) {
+      console.error('Failed to create note:', err)
+    }
+  }, [refreshFiles, openNote])
+
+  // ── Delete Active Note ────────────────────────────────────────────
+  const deleteNote = useCallback(async (file) => {
+    try {
+      await invoke('delete_note', { path: file.path })
+      if (activeFile?.path === file.path) {
+        setActiveFile(null)
+        setNoteContent('')
+      }
+      await refreshFiles()
+      await refreshIndex()
+    } catch (err) {
+      console.error('Failed to delete note:', err)
+    }
+  }, [activeFile, refreshFiles, refreshIndex])
+
+  // ── Wikilink navigation ───────────────────────────────────────────
+  const navigateToLink = useCallback((linkName) => {
+    const found = files.find(
+      f => !f.is_dir && f.name.toLowerCase() === linkName.toLowerCase()
+    )
+    if (found) openNote(found)
+  }, [files, openNote])
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <div className="app-shell">
+      {/* Title Bar */}
+      <header className="titlebar">
+        <span className="titlebar-logo">⬡ EnchantedObsidian</span>
+        <span className="titlebar-sep">//</span>
+        <span className="titlebar-path">{activeFile ? activeFile.path : notesDir}</span>
+        <div className="titlebar-status">
+          <span className="titlebar-path">
+            {saveStatus === 'saving' ? 'saving...' : activeFile ? 'saved' : ''}
+          </span>
+          {activeFile && <div className={`status-dot ${saveStatus}`} />}
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+      </header>
 
-      <div className="ticks"></div>
+      {/* Sidebar */}
+      <Sidebar
+        files={files}
+        activeFile={activeFile}
+        onOpenNote={openNote}
+        onCreateNote={createNote}
+        onDeleteNote={deleteNote}
+      />
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+      {/* Editor */}
+      <EditorView
+        activeFile={activeFile}
+        content={noteContent}
+        onChange={handleContentChange}
+      />
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+      {/* Context Panel */}
+      <ContextPanel
+        linkIndex={linkIndex}
+        activeFile={activeFile}
+        onNavigate={navigateToLink}
+      />
+    </div>
   )
 }
 
