@@ -26,6 +26,12 @@ const IconTrash = () => (
   </svg>
 )
 
+const IconEdit = () => (
+  <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.5">
+    <path d="M11 2l3 3-9 9-3 1 1-3 9-9z" />
+  </svg>
+)
+
 // ── New Note Modal ────────────────────────────────────────────────────────────
 function NewNoteModal({ onConfirm, onCancel }) {
   const [title, setTitle] = useState('')
@@ -66,6 +72,7 @@ export default function Sidebar({ files, activeFile, currentSubPath, onOpenNote,
   const [hoveredPath, setHoveredPath] = useState(null)
   const [editingPath, setEditingPath] = useState(null)
   const [editingTitle, setEditingTitle] = useState('')
+  const [confirmDeletePath, setConfirmDeletePath] = useState(null)
 
   const handleCreate = (title) => {
     onCreateNote(title)
@@ -114,11 +121,8 @@ export default function Sidebar({ files, activeFile, currentSubPath, onOpenNote,
     <>
       <aside className="sidebar">
         {/* Header */}
-        <div className="sidebar-header">
-          <span className="sidebar-title">
-            {currentSubPath ? `// ${currentSubPath.toUpperCase()}` : '// VAULT'}
-          </span>
-          <div className="command-strip">
+        <div className="sidebar-header-zen">
+          <div className="command-strip-zen">
             <button
                className="command-btn command-btn-lime"
                title="Scan Image"
@@ -164,8 +168,9 @@ export default function Sidebar({ files, activeFile, currentSubPath, onOpenNote,
                   file.is_dir ? 'is-dir' : '',
                 ].join(' ')}
                 onClick={() => file.is_dir ? handleFolderClick(file) : onOpenNote(file)}
+                onDoubleClick={() => !file.is_dir && startRename(file)}
                 onMouseEnter={() => setHoveredPath(file.path)}
-                onMouseLeave={() => setHoveredPath(null)}
+                onMouseLeave={() => { setHoveredPath(null); setConfirmDeletePath(null); }}
                 title={file.path}
               >
                 {file.is_dir ? <IconFolder /> : <IconFile />}
@@ -188,15 +193,36 @@ export default function Sidebar({ files, activeFile, currentSubPath, onOpenNote,
                   <span className="truncate" style={{ flex: 1 }}>{file.name}</span>
                 )}
 
-                {!file.is_dir && hoveredPath === file.path && editingPath !== file.path && (
-                  <button
-                    className="btn btn-ghost btn-icon"
-                    style={{ padding: '2px 4px', boxShadow: 'none' }}
-                    title="Delete note"
-                    onClick={e => { e.stopPropagation(); onDeleteNote(file) }}
-                  >
-                    <IconTrash />
-                  </button>
+                {hoveredPath === file.path && !file.is_dir && editingPath !== file.path && (
+                  <div className="file-item-actions" style={{ display: 'flex', gap: '4px' }}>
+                    <button
+                      className="btn btn-ghost btn-icon"
+                      style={{ padding: '2px 4px', boxShadow: 'none' }}
+                      title="Rename note"
+                      onClick={e => { e.stopPropagation(); startRename(file) }}
+                    >
+                      <IconEdit />
+                    </button>
+                    <button
+                      className="btn btn-ghost btn-icon"
+                      style={{ 
+                        padding: '2px 4px', 
+                        boxShadow: 'none', 
+                        color: confirmDeletePath === file.path ? '#FF3030' : 'inherit' 
+                      }}
+                      title={confirmDeletePath === file.path ? "Click again to confirm" : "Delete note"}
+                      onClick={e => { 
+                        e.stopPropagation(); 
+                        if (confirmDeletePath === file.path) {
+                          onDeleteNote(file);
+                        } else {
+                          setConfirmDeletePath(file.path);
+                        }
+                      }}
+                    >
+                      <IconTrash />
+                    </button>
+                  </div>
                 )}
               </div>
             ))

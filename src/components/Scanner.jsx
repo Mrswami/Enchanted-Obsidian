@@ -13,17 +13,15 @@ export default function Scanner({ onScanComplete, onCancel }) {
     setError(null);
 
     try {
-      // Step 1: Read the file as Base64 for the AI
       const reader = new FileReader();
       reader.readAsDataURL(file);
       reader.onload = async () => {
         const base64Data = reader.result.split(',')[1];
         
-        // Step 2: Invoke the Tauri OCR command
-        // This will send the image to Gemini 1.5 Pro's Vision model
         const { invoke } = await import('@tauri-apps/api/core');
         const result = await invoke('process_ocr_image', { base64Data });
         
+        setIsScanning(false);
         onScanComplete(result);
       };
     } catch (err) {

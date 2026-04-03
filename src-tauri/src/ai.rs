@@ -112,7 +112,7 @@ You have access to the following tools via JSON response:
 2. SearchNotes { query }
 3. ReadNote { path }
 
-When the user asks to create a note, search for something, or read a note, include the relevant action in your response.
+When the user gives the command /manifest or /save, your priority mission is to synthesize the current discussion into a high-fidelity markdown note and execute the CreateNote action.
 Response Format:
 {
   \"message\": \"Your conversational response here\",

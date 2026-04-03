@@ -98,19 +98,16 @@ function App() {
   }, [activeFile, refreshIndex])
 
   // ── Create New Note ───────────────────────────────────────────────
-  const createNote = useCallback(async (title, initialContent = '') => {
+  const createNote = useCallback(async (title, initialContent = null) => {
     try {
-      const path = await invoke('create_note', { title })
-      const newFile = { name: title, path, is_dir: false }
+      const path = await invoke('create_note', { 
+        title, 
+        content: initialContent 
+      })
       await refreshFiles()
-      
-      if (initialContent) {
-        await invoke('save_note', { path, content: initialContent })
-        setActiveFile(newFile)
-        setNoteContent(initialContent)
-      } else {
-        await openNote(newFile)
-      }
+      const newFile = { name: title, path, is_dir: false }
+      openNote(newFile)
+      return path
     } catch (err) {
       console.error('Failed to create note:', err)
     }
@@ -146,11 +143,14 @@ function App() {
   }, [activeFile, refreshFiles, refreshIndex])
 
   // ── AI Command Handler ───────────────────────────────────────────
-  const handleAiQuery = useCallback(async (query) => {
-    // Collect context (current note content + link graph)
+  const handleAiQuery = useCallback(async (query, temporalContext = '') => {
+    // Collect context (current note content + link graph + historical context)
     const context = `
-      Current active note: ${activeFile?.name || 'None'}
-      Current content: ${noteContent.substring(0, 500)}
+      Temporal Discussion History:
+      ${temporalContext}
+
+      Active focal note: ${activeFile?.name || 'None'}
+      Active focal content: ${noteContent.substring(0, 500)}
       Link Index keys: ${Object.keys(linkIndex).join(', ')}
     `
     try {
@@ -187,9 +187,20 @@ function App() {
     <div className="app-shell">
       {/* Title Bar */}
       <header className="titlebar">
-        <span className="titlebar-logo">⬡ ENCHANTED_OBSIDIAN</span>
-        <span className="titlebar-sep">//</span>
-        <span className="titlebar-path">{activeFile ? activeFile.path : notesDir}</span>
+        <div className="titlebar-logo">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
+            <path d="M8 1L2 5L8 15L14 5L8 1Z" fill="url(#prism-logo-gradient)" />
+            <defs>
+              <linearGradient id="prism-logo-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="var(--accent)" />
+                <stop offset="100%" stopColor="var(--teal)" />
+              </linearGradient>
+            </defs>
+          </svg>
+          <span className="logo-text-glam">ENCHANTED OBSIDIAN</span>
+        </div>
+        <span className="titlebar-sep">·</span>
+        <span className="titlebar-path">{activeFile ? activeFile.path : notesDir || ''}</span>
         <div className="titlebar-status">
           <span className="titlebar-path" style={{ fontSize: '9px', opacity: 0.5 }}>
             {saveStatus === 'saving' ? 'SYNCING...' : activeFile ? 'SECURE' : ''}
@@ -217,6 +228,7 @@ function App() {
           activeFile={activeFile}
           content={noteContent}
           onChange={handleContentChange}
+          onOpenScanner={() => setShowScanner(true)}
         />
 
         {/* Context Panel */}

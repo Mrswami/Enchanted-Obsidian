@@ -122,6 +122,7 @@ async fn save_note(path: String, content: String) -> Result<(), String> {
 async fn create_note(
     state: State<'_, AppState>,
     title: String,
+    content: Option<String>,
 ) -> Result<String, String> {
     let dir = state.notes_dir.lock().await.clone();
     let safe_title = title
@@ -133,8 +134,11 @@ async fn create_note(
 
     let file_name = format!("{}.md", safe_title);
     let full_path = PathBuf::from(&dir).join(&file_name);
-    let content = format!("# {}\n\n", title);
-    fs::write(&full_path, &content).map_err(|e| e.to_string())?;
+    let body = match content {
+        Some(c) => c,
+        None => String::new(), // Initializing as pure unconfined prose
+    };
+    fs::write(&full_path, &body).map_err(|e| e.to_string())?;
     Ok(full_path.to_string_lossy().to_string())
 }
 
