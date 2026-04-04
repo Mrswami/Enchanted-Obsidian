@@ -3,22 +3,23 @@ import os
 import time
 import socket
 import sys
+import asyncio
 from dotenv import load_dotenv
 from playwright.async_api import async_playwright
 from bs4 import BeautifulSoup
 
+# Create a global lock to ensure tasks are processed sequentially
+INGESTION_LOCK = asyncio.Lock()
+
 def ensure_single_instance():
     """
     Ensures that only one instance of the bot is running on this machine
-    by attempting to bind to a specific local port.
+    by attempting to bind to a specific high-range local port (Ghost Range).
     """
-    # Create a dummy socket
     lock_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
-        # Port 9999 is highly unlikely to be used by common apps
-        # Binding to '127.0.0.1' ensures it remains local-only
-        lock_socket.bind(("127.0.0.1", 9999))
-        # Keep the socket alive for the duration of the script
+        # Using 50505 to avoid common application conflicts
+        lock_socket.bind(("127.0.0.1", 50505))
         return lock_socket
     except socket.error:
         print("// ALREADY ONLINE: Existing bot instance detected. Terminating duplicate.")
@@ -98,42 +99,77 @@ async def on_message(message):
     if message.author == client.user:
         return
 
+# 📊 SESSION TELEMETRY
+session_start_time = time.time()
+total_scrapes = 0
+total_scrape_duration = 0.0
+
+@client.event
+async def on_message(message):
+    global total_scrapes, total_scrape_duration
+    
+    if message.author == client.user:
+        return
+
+    # --- COMMAND: /stats ---
+    if message.content.strip() == '/stats':
+        uptime_hrs = (time.time() - session_start_time) / 3600
+        # Estimation logic: Pi 5 draws ~2.7W idle, ~8W during Playwright scrape
+        # We'll calculate total kWh based on uptime + active scrape time
+        idle_kwh = (uptime_hrs * 2.7) / 1000
+        active_kwh = (total_scrape_duration / 3600 * 8) / 1000
+        total_kwh = idle_kwh + active_kwh
+        cost = total_kwh * 0.15 # Assuming $0.15 per kWh
+        
+        await message.channel.send(
+            f"// 📊 **ENCHANTED BRAIN TELEMETRY**\n"
+            f"> **Uptime**: `{uptime_hrs:.2f} hrs`\n"
+            f"> **Total Ingestions**: `{total_scrapes}`\n"
+            f"> **Active Compute**: `{total_scrape_duration:.1f}s`\n"
+            f"> **Est. Energy Used**: `{total_kwh:.6f} kWh`\n"
+            f"> **Est. Session Cost**: `${cost:.6f} USD`"
+        )
+        return
+
     # Check if the message is a Gemini share link
     if 'g.co/gemini/share/' in message.content:
-        # 1. Immediate acknowledgement
-        status_msg = await message.channel.send(f'// 👁️ **LINK DETECTED** by {message.author.mention}\n> `INITIATING SOVEREIGN INGESTION PROTOCOL...`')
-        
-        try:
-            url = message.content.strip()
+        if INGESTION_LOCK.locked():
+            await message.channel.send(f'// ⏳ **QUEUE DETECTED** - Processing previous link for {message.author.mention}. Please wait...')
+
+        async with INGESTION_LOCK:
+            start_scrape = time.time()
+            status_msg = await message.channel.send(f'// 👁️ **LINK DETECTED** by {message.author.mention}\n> `INITIATING SOVEREIGN INGESTION PROTOCOL...`')
             
-            # 2. Scraper Status
-            await status_msg.edit(content=f'// 👁️ **LINK DETECTED** by {message.author.mention}\n> `⚙️ SCRAPING HTML DATA...`')
-            raw_html = await scrape_gemini_link(url)
-            
-            # 3. Parser Status
-            await status_msg.edit(content=f'// 👁️ **LINK DETECTED** by {message.author.mention}\n> `🧹 PARSING DIALOGUE TURNS...`')
-            title, clean_markdown = parse_gemini_dialogue(raw_html)
-            
-            # 4. Vault Status
-            await status_msg.edit(content=f'// 👁️ **LINK DETECTED** by {message.author.mention}\n> `💾 WRITING TO VAULT...`')
-            
-            timestamp = int(time.time())
-            safe_title = "".join(x for x in title if x.isalnum() or x in " -_").strip()
-            filename = f"GEMINI_{safe_title}_{timestamp}.md"
-            filepath = os.path.join(VAULT_DIR, filename)
-            
-            with open(filepath, 'w', encoding='utf-8') as f:
-                f.write(f"# {title}\n\n")
-                f.write(f"**Source URL**: {url}\n")
-                f.write(f"**Ingested**: {time.ctime()}\n\n")
-                f.write("---\n\n")
-                f.write(clean_markdown)
+            try:
+                url = message.content.strip()
+                await status_msg.edit(content=f'// 👁️ **LINK DETECTED** by {message.author.mention}\n> `⚙️ SCRAPING HTML DATA...`')
+                raw_html = await scrape_gemini_link(url)
                 
-            # 5. Final Confirmation
-            await status_msg.edit(content=f'// ✅ **INGESTION COMPLETE** for {message.author.mention}\n> **TITLE**: `{title}`\n> **VAULT ANCHOR**: `[[{filename}]]`')
-            
-        except Exception as e:
-            await status_msg.edit(content=f'// ❌ **FATAL ERROR DURING INGESTION** for {message.author.mention}\n> `ERROR`: {e}')
+                await status_msg.edit(content=f'// 👁️ **LINK DETECTED** by {message.author.mention}\n> `🧹 PARSING DIALOGUE TURNS...`')
+                title, clean_markdown = parse_gemini_dialogue(raw_html)
+                
+                await status_msg.edit(content=f'// 👁️ **LINK DETECTED** by {message.author.mention}\n> `💾 WRITING TO VAULT...`')
+                
+                timestamp = int(time.time())
+                safe_title = "".join(x for x in title if x.isalnum() or x in " -_").strip()
+                filename = f"GEMINI_{safe_title}_{timestamp}.md"
+                filepath = os.path.join(VAULT_DIR, filename)
+                
+                with open(filepath, 'w', encoding='utf-8') as f:
+                    f.write(f"# {title}\n\n")
+                    f.write(f"**Source URL**: {url}\n")
+                    f.write(f"**Ingested**: {time.ctime()}\n\n")
+                    f.write("---\n\n")
+                    f.write(clean_markdown)
+                
+                # Update stats
+                total_scrapes += 1
+                total_scrape_duration += (time.time() - start_scrape)
+                    
+                await status_msg.edit(content=f'// ✅ **INGESTION COMPLETE** for {message.author.mention}\n> **TITLE**: `{title}`\n> **VAULT ANCHOR**: `[[{filename}]]`')
+                
+            except Exception as e:
+                await status_msg.edit(content=f'// ❌ **FATAL ERROR DURING INGESTION** for {message.author.mention}\n> `ERROR`: {e}')
 
 if __name__ == '__main__':
     # 🛡️ SINGLE INSTANCE LOCK
