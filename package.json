@@ -8,6 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "tauri": "tauri",
     "tauri-dev": "powershell -Command \"$env:Path += ';C:\\Users\\freem\\.cargo\\bin'; npx tauri dev\""
   },
   "dependencies": {
