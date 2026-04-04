@@ -23,14 +23,19 @@ pub struct AiManager {
 }
 
 impl AiManager {
-    pub fn new() -> Result<Self, String> {
-        dotenvy::dotenv().ok();
-        let api_key = env::var("GEMINI_API_KEY")
-            .map_err(|_| "GEMINI_API_KEY not found in .env".to_string())?;
+    /// Creates a new AiManager. If api_key is None, it attempts to load from .env.
+    pub fn new(api_key: Option<String>) -> Result<Self, String> {
+        let key = if let Some(k) = api_key {
+            k
+        } else {
+            dotenvy::dotenv().ok();
+            env::var("GEMINI_API_KEY")
+                .map_err(|_| "GEMINI_API_KEY not found in environment".to_string())?
+        };
         
         Ok(Self {
             client: Client::new(),
-            api_key,
+            api_key: key,
         })
     }
 

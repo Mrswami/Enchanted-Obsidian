@@ -771,3 +771,75 @@ body {
 
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* ─── Mobile Adaptations (Tauri Mobile Ready) ────────────────────────── */
+
+@media (max-width: 1024px) {
+  .app-main {
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Sidebar and Context Panel become overlays on mobile */
+  .sidebar, .context-panel {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: 100;
+    width: 85%;
+    max-width: 320px;
+    background: rgba(10, 11, 14, 0.98) !important;
+    backdrop-filter: blur(20px);
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .sidebar {
+    left: 0;
+    transform: translateX(-105%);
+  }
+
+  .context-panel {
+    right: 0;
+    transform: translateX(105%);
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    border-right: none;
+  }
+
+  /* Active states for drawers (triggered by UI state) */
+  .sidebar.active { transform: translateX(0); }
+  .context-panel.active { transform: translateX(0); }
+
+  .editor-panel {
+    flex: 1;
+    width: 100%;
+    padding: 12px !important;
+  }
+
+  .titlebar {
+    justify-content: space-between;
+    padding: 0 16px;
+  }
+
+  .titlebar-path {
+    display: none; /* Hide long paths on small screens */
+  }
+
+  /* Touch-friendly adjustments for mobile */
+  .file-item, .command-btn, .btn {
+    min-height: 44px;
+    padding: 12px 16px;
+  }
+
+  .cm-scroller {
+    padding: 16px 5% !important; /* Tighter padding for mobile */
+  }
+}
+
+/* --- Enchanted Grid (High-Density Multi-Column) ------------------- */
+.home-view { flex: 1; padding: 40px; overflow-y: auto; background: var(--bg-void); }
+.note-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; }
+.note-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; transition: all 0.3s ease; }
+.note-card:hover { border-color: var(--accent); transform: translateY(-4px); }
+

@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager, State};
+use tauri::path::BaseDirectory;
 use tokio::sync::Mutex;
 
 // ─── App State ──────────────────────────────────────────────────────────────
@@ -27,6 +28,22 @@ pub struct NoteFile {
 }
 
 // ─── Tauri Commands ──────────────────────────────────────────────────────────
+
+/// Initializes or updates the AI Manager with a specific API key.
+#[tauri::command]
+async fn init_ai(state: State<'_, AppState>, api_key: String) -> Result<String, String> {
+    let mgr = ai::AiManager::new(Some(api_key))?;
+    let mut mgr_lock = state.ai_manager.lock().await;
+    *mgr_lock = Some(mgr);
+    Ok("// AI CORE INITIALIZED".to_string())
+}
+
+/// Checks if the AI is currently online.
+#[tauri::command]
+async fn get_ai_status(state: State<'_, AppState>) -> Result<bool, String> {
+    let mgr_lock = state.ai_manager.lock().await;
+    Ok(mgr_lock.is_some())
+}
 
 /// Returns the current notes directory path.
 #[tauri::command]
@@ -215,35 +232,48 @@ async fn process_ocr_image(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // Default notes directory: ~/Documents/EnchantedObsidian
-    let default_notes_dir = dirs_next::document_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("EnchantedObsidian")
-        .to_string_lossy()
-        .to_string();
-
-    let ai_mgr = ai::AiManager::new().ok();
-
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_log::Builder::default().build())
+        .manage(AppState {
+            notes_dir: Mutex::new(String::new()),
+            ai_manager: Mutex::new(None),
+        })
         .setup(|app| {
-            // Ensure notes directory exists
-            let notes_dir = app.state::<AppState>().notes_dir.blocking_lock().clone();
-            let _ = fs::create_dir_all(&notes_dir);
+            // Robust Path Strategy: 
+            // 1. Check for documents dir
+            // 2. Fallback to app data dir (safest for Android/iOS)
+            let path_resolver = app.path();
+            let default_dir = path_resolver
+                .document_dir()
+                .unwrap_or_else(|_| path_resolver.app_data_dir().unwrap_or_default())
+                .join("EnchantedObsidian");
+
+            let notes_dir_str = default_dir.to_string_lossy().to_string();
+            let _ = fs::create_dir_all(&default_dir);
+
+            // Set initial state
+            {
+                let mut state_notes = app.state::<AppState>().notes_dir.blocking_lock();
+                *state_notes = notes_dir_str.clone();
+            }
+
+            // Attempt auto-init of AI from .env if it exists (Desktop Developer Mode)
+            if let Ok(mgr) = ai::AiManager::new(None) {
+                let mut state_ai = app.state::<AppState>().ai_manager.blocking_lock();
+                *state_ai = Some(mgr);
+            }
 
             // Start the file watcher
-            watcher::start_watcher(app.handle().clone(), notes_dir);
+            watcher::start_watcher(app.handle().clone(), notes_dir_str);
 
             Ok(())
         })
-        .manage(AppState {
-            notes_dir: Mutex::new(default_notes_dir),
-            ai_manager: Mutex::new(ai_mgr),
-        })
         .invoke_handler(tauri::generate_handler![
+            init_ai,
+            get_ai_status,
             get_notes_dir,
             set_notes_dir,
             read_notes_directory,

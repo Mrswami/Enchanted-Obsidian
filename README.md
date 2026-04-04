@@ -1,16 +1,25 @@
-# React + Vite
+# 🌌 Enchanted Obsidian
+### // A High-Velocity Research Hub
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**Enchanted Obsidian** is a tactical, local-first Markdown editor designed to bridge the gap between ephemeral AI conversations and permanent knowledge retention. It transforms your Obsidian vault into a living graph powered by Gemini.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🛰️ The Sovereign Ingestion Bridge
+This project features a dedicated **Enchanted Brain** Discord bot that serves as your mobile-to-desktop bridge. 
+*   **Share from Mobile**: Send any Gemini share link to your private Discord server.
+*   **High-Fidelity Extraction**: The bot (running locally or on a Pi) scrapes the full dialogue using Playwright and manifests it instantly in your vault.
+*   **Real-Time Status**: Get live updates in Discord as the "Forge" parses and writes your note.
 
-## React Compiler
+## 🍱 Tactical Layout (Keep-Style)
+The UI is built for speed, featuring a **High-Density Masonry Grid** that lets you scan dozens of research blocks at once. Inspired by Google Keep, but hardened with a Carbon Nebula aesthetic.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 🛠️ Infrastructure & Forge
+*   **Rust Engine**: Powered by **Tauri 2.0** for native performance on Windows, Android, and iOS.
+*   **Enchanted Forge**: Automated CI/CD pipeline in GitHub Actions that builds and distributes Android APKs to your testers on every push.
+*   **Telemetry**: Real-time energy and cost monitoring for low-power deployments (Raspberry Pi 5).
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+> [!TIP]
+> **Architecture designed by Antigravity** — *Crafting the future of high-velocity knowledge architecture.*

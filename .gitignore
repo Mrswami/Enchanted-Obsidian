@@ -4,7 +4,9 @@ dist
 dist-ssr
 target/
 src-tauri/target/
-src-tauri/gen/
+src-tauri/gen/schemas/
+!src-tauri/gen/android/
+!src-tauri/gen/apple/
 *.local
 .env
 .env.*

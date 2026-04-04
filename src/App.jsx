@@ -5,6 +5,7 @@ import Sidebar from './components/Sidebar'
 import EditorView from './components/EditorView'
 import ContextPanel from './components/ContextPanel'
 import Scanner from './components/Scanner'
+import NoteGrid from './components/NoteGrid'
 import './index.css'
 import './App.css'
 
@@ -16,7 +17,14 @@ function App() {
   const [linkIndex, setLinkIndex] = useState({})
   const [saveStatus, setSaveStatus] = useState('saved') // 'saved' | 'saving'
   const [showScanner, setShowScanner] = useState(false)
+  const [view, setView] = useState('grid') // 'grid' | 'editor'
   const saveTimer = useRef(null)
+
+  const handleGoHome = useCallback(() => {
+    setActiveFile(null)
+    setNoteContent('')
+    setView('grid')
+  }, [])
 
   // ── Bootstrap ────────────────────────────────────────────────────
   useEffect(() => {
@@ -75,6 +83,7 @@ function App() {
       setActiveFile(file)
       setNoteContent(content)
       setSaveStatus('saved')
+      setView('editor')
     } catch (err) {
       console.error('Failed to open note:', err)
     }
@@ -187,7 +196,7 @@ function App() {
     <div className="app-shell">
       {/* Title Bar */}
       <header className="titlebar">
-        <div className="titlebar-logo">
+        <div className="titlebar-logo" style={{ cursor: 'pointer' }} onClick={handleGoHome}>
           <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
             <path d="M8 1L2 5L8 15L14 5L8 1Z" fill="url(#prism-logo-gradient)" />
             <defs>
@@ -223,13 +232,21 @@ function App() {
           onOpenScanner={() => setShowScanner(true)}
         />
 
-        {/* Editor */}
-        <EditorView
-          activeFile={activeFile}
-          content={noteContent}
-          onChange={handleContentChange}
-          onOpenScanner={() => setShowScanner(true)}
-        />
+        {/* Main Interface Switching Logic */}
+        {view === 'grid' ? (
+          <NoteGrid
+            files={files}
+            onOpenNote={openNote}
+            onCreateNote={createNote}
+          />
+        ) : (
+          <EditorView
+            activeFile={activeFile}
+            content={noteContent}
+            onChange={handleContentChange}
+            onOpenScanner={() => setShowScanner(true)}
+          />
+        )}
 
         {/* Context Panel */}
         <ContextPanel
