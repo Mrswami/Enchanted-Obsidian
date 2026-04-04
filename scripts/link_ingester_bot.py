@@ -80,16 +80,24 @@ async def on_message(message):
 
     # Check if the message is a Gemini share link
     if 'g.co/gemini/share/' in message.content:
-        await message.channel.send('// LINK DETECTED. INITIATING HIGH-FIDELITY EXTRACTION.')
+        # 1. Immediate acknowledgement
+        status_msg = await message.channel.send(f'// 👁️ **LINK DETECTED** by {message.author.mention}\n> `INITIATING SOVEREIGN INGESTION PROTOCOL...`')
         
         try:
             url = message.content.strip()
+            
+            # 2. Scraper Status
+            await status_msg.edit(content=f'// 👁️ **LINK DETECTED** by {message.author.mention}\n> `⚙️ SCRAPING HTML DATA...`')
             raw_html = await scrape_gemini_link(url)
             
+            # 3. Parser Status
+            await status_msg.edit(content=f'// 👁️ **LINK DETECTED** by {message.author.mention}\n> `🧹 PARSING DIALOGUE TURNS...`')
             title, clean_markdown = parse_gemini_dialogue(raw_html)
             
+            # 4. Vault Status
+            await status_msg.edit(content=f'// 👁️ **LINK DETECTED** by {message.author.mention}\n> `💾 WRITING TO VAULT...`')
+            
             timestamp = int(time.time())
-            # Use title for filename but sanitize it
             safe_title = "".join(x for x in title if x.isalnum() or x in " -_").strip()
             filename = f"GEMINI_{safe_title}_{timestamp}.md"
             filepath = os.path.join(VAULT_DIR, filename)
@@ -101,10 +109,11 @@ async def on_message(message):
                 f.write("---\n\n")
                 f.write(clean_markdown)
                 
-            await message.channel.send(f'// EXTRACTION SECURED: [[{filename}]]')
+            # 5. Final Confirmation
+            await status_msg.edit(content=f'// ✅ **INGESTION COMPLETE** for {message.author.mention}\n> **TITLE**: `{title}`\n> **VAULT ANCHOR**: `[[{filename}]]`')
             
         except Exception as e:
-            await message.channel.send(f'// FATAL ERROR DURING INGESTION: {e}')
+            await status_msg.edit(content=f'// ❌ **FATAL ERROR DURING INGESTION** for {message.author.mention}\n> `ERROR`: {e}')
 
 if __name__ == '__main__':
     if not TOKEN:
