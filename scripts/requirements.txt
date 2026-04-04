@@ -1,4 +1,4 @@
-discord.py
+python-dotenv
 playwright
-dotenvy
 beautifulsoup4
+discord.py
