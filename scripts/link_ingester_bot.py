@@ -94,13 +94,17 @@ async def on_message(message):
     if message.author == client.user:
         return
 
+    if message.content.strip() == '/ping':
+        await message.channel.send("// 🟢 **ENCHANTED NODE IS ONLINE**")
+        return
+
     if message.content.strip() == '/stats':
         uptime = (time.time() - session_start_time) / 3600
         cost = ((uptime * 2.7 / 1000) + (total_scrape_duration / 3600 * 8 / 1000)) * 0.15
         await message.channel.send(f"// 📊 **TELEMETRY**\n> Uptime: `{uptime:.2f}h` | Ingestions: `{total_scrapes}` | Cost: `${cost:.4f}`")
         return
 
-    if 'g.co/gemini/share/' in message.content:
+    if 'g.co/gemini/share/' in message.content or 'gemini.google.com/share/' in message.content:
         if INGESTION_LOCK.locked():
             await message.channel.send(f'// ⏳ **QUEUE BUSY** - Please wait...')
 
