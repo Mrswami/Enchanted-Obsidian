@@ -1,8 +1,28 @@
 import discord
 import os
 import time
+import socket
+import sys
 from dotenv import load_dotenv
 from playwright.async_api import async_playwright
+from bs4 import BeautifulSoup
+
+def ensure_single_instance():
+    """
+    Ensures that only one instance of the bot is running on this machine
+    by attempting to bind to a specific local port.
+    """
+    # Create a dummy socket
+    lock_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        # Port 9999 is highly unlikely to be used by common apps
+        # Binding to '127.0.0.1' ensures it remains local-only
+        lock_socket.bind(("127.0.0.1", 9999))
+        # Keep the socket alive for the duration of the script
+        return lock_socket
+    except socket.error:
+        print("// ALREADY ONLINE: Existing bot instance detected. Terminating duplicate.")
+        sys.exit(0)
 
 load_dotenv()
 
@@ -116,7 +136,12 @@ async def on_message(message):
             await status_msg.edit(content=f'// ❌ **FATAL ERROR DURING INGESTION** for {message.author.mention}\n> `ERROR`: {e}')
 
 if __name__ == '__main__':
+    # 🛡️ SINGLE INSTANCE LOCK
+    # If another version of the bot is already running, this will terminate.
+    _lock = ensure_single_instance()
+    
     if not TOKEN:
         print("// ERROR: DISCORD_BOT_TOKEN not found in environment.")
     else:
+        print(f"// INITIATING VAULT SYNC: {VAULT_DIR}")
         client.run(TOKEN)
