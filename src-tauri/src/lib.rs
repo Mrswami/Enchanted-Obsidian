@@ -8,7 +8,6 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager, State};
-use tauri::path::BaseDirectory;
 use tokio::sync::Mutex;
 
 // ─── App State ──────────────────────────────────────────────────────────────
@@ -256,13 +255,15 @@ pub fn run() {
 
             // Set initial state
             {
-                let mut state_notes = app.state::<AppState>().notes_dir.blocking_lock();
+                let state = app.state::<AppState>();
+                let mut state_notes = state.notes_dir.blocking_lock();
                 *state_notes = notes_dir_str.clone();
             }
 
             // Attempt auto-init of AI from .env if it exists (Desktop Developer Mode)
             if let Ok(mgr) = ai::AiManager::new(None) {
-                let mut state_ai = app.state::<AppState>().ai_manager.blocking_lock();
+                let state = app.state::<AppState>();
+                let mut state_ai = state.ai_manager.blocking_lock();
                 *state_ai = Some(mgr);
             }
 
