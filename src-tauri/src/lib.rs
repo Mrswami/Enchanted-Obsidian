@@ -3,6 +3,7 @@ mod watcher;
 mod ai;
 
 use indexer::{build_full_index, extract_wikilinks, NoteLinkData};
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -29,6 +30,12 @@ pub struct NoteFile {
     pub modified_at: u64,
     pub todo_count: u32,
     pub triage_score: f32,
+    pub semantic_vector: Vec<f32>, // The foundation for Sector: Deep Providence
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct RadarIndex {
+    pub cache: HashMap<String, NoteFile>,
 }
 
 // ─── Tauri Commands ──────────────────────────────────────────────────────────
@@ -85,23 +92,40 @@ async fn read_notes_directory(
         return Ok(vec![]);
     }
 
-    let entries: Vec<NoteFile> = fs::read_dir(&path)
+    // Load the Intelligence Index (Cache)
+    let index_path = PathBuf::from(&base_dir).join(".radar_index.json");
+    let mut index: RadarIndex = if index_path.exists() {
+        let content = fs::read_to_string(&index_path).unwrap_or_default();
+        serde_json::from_str(&content).unwrap_or(RadarIndex { cache: HashMap::new() })
+    } else {
+        RadarIndex { cache: HashMap::new() }
+    };
+
+    let entries: Vec<fs::DirEntry> = fs::read_dir(&path)
         .map_err(|e| e.to_string())?
         .filter_map(|e| e.ok())
-        .map(|e| {
+        .collect();
+
+    // VORTEX PARALLEL SCAN ⚡
+    let results: Vec<NoteFile> = entries
+        .into_par_iter()
+        .filter_map(|e| {
             let path = e.path();
+            let path_str = path.to_string_lossy().to_string();
             let is_dir = path.is_dir();
+            
+            // Filter non-markdown files early
+            if !is_dir && !path_str.to_lowercase().ends_with(".md") {
+                return None;
+            }
+
             let name = if is_dir {
                 path.file_name().unwrap_or_default().to_string_lossy().to_string()
             } else {
                 path.file_stem().unwrap_or_default().to_string_lossy().to_string()
             };
 
-            let mut title = name.clone();
-            let mut preview = String::new();
             let mut modified_at = 0;
-            let mut todo_count = 0;
-
             if let Ok(metadata) = e.metadata() {
                 if let Ok(modified) = metadata.modified() {
                     modified_at = modified
@@ -111,22 +135,28 @@ async fn read_notes_directory(
                 }
             }
 
-            // Deep Peek into Markdown files
+            // CHECK THE CACHE: Only re-scan if file was changed
+            if let Some(cached) = index.cache.get(&path_str) {
+                if cached.modified_at == modified_at && !cached.preview.is_empty() {
+                    return Some(cached.clone());
+                }
+            }
+
+            let mut title = name.clone();
+            let mut preview = String::new();
+            let mut todo_count = 0;
+
+            // Deep Peek into Markdown files - OPTIMIZED: Only read what's needed
             if !is_dir && path.extension().map_or(false, |ext| ext == "md") {
                 if let Ok(content) = fs::read_to_string(&path) {
-                    // Extract first H1 for title
-                    for line in content.lines() {
+                    for line in content.lines().take(50) { 
                         let trimmed = line.trim();
                         if trimmed.starts_with("# ") {
                             title = trimmed[2..].to_string();
                             break;
                         }
                     }
-                    
-                    // Count Incomplete To-Dos: - [ ]
                     todo_count = content.matches("- [ ]").count() as u32;
-                    
-                    // Extract preview (skipping the title)
                     let h1_title = title.clone();
                     let mut clean_content: String = content.lines()
                         .filter(|l| {
@@ -137,65 +167,35 @@ async fn read_notes_directory(
                         .collect::<Vec<_>>()
                         .join(" ")
                         .replace("**", "")
-                        .replace("Source URL:", "")
-                        .replace("Ingested:", "")
                         .replace("---", "");
                     
-                    // Extra dedup: check if title is a prefix of the preview
                     if clean_content.to_lowercase().starts_with(&h1_title.to_lowercase()) {
                         clean_content = clean_content[h1_title.len()..].trim().to_string();
                     }
-
-                    preview = clean_content.chars()
-                        .filter(|&c| c != '\n' && c != '\r')
-                        .take(150)
-                        .collect();
-                        
-                    if clean_content.len() > 150 {
-                        preview.push_str("...");
-                    }
+                    preview = clean_content.chars().take(150).collect();
+                    if clean_content.len() > 150 { preview.push_str("..."); }
                 }
             }
 
-            // Triage Score Calculation:
-            let now = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs();
-            
+            let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
             let age_secs = now.saturating_sub(modified_at);
-            let recency_score = 1.0 / ((age_secs as f32 / 86400.0) + 1.0); // Decay over days
-            let todo_score = (todo_count as f32 * 0.5).min(1.0); // Cap for score weighting
-            
+            let recency_score = 1.0 / ((age_secs as f32 / 86400.0) + 1.0);
+            let todo_score = (todo_count as f32 * 0.5).min(1.0);
             let triage_score = (recency_score * 0.4) + (todo_score * 0.6);
 
-            NoteFile {
-                name,
-                path: path.to_string_lossy().to_string(),
-                is_dir,
-                title,
-                preview,
-                modified_at,
-                todo_count,
-                triage_score,
-            }
-        })
-        .filter(|f| {
-            f.is_dir
-                || PathBuf::from(&f.path)
-                    .extension()
-                    .map(|e| e == "md")
-                    .unwrap_or(false)
+            Some(NoteFile {
+                name, path: path_str, is_dir, title, preview, modified_at, todo_count, triage_score,
+                semantic_vector: Vec::new(),
+            })
         })
         .collect();
 
-    let mut sorted_entries = entries;
+    for res in &results { index.cache.insert(res.path.clone(), res.clone()); }
+    let _ = fs::write(&index_path, serde_json::to_string(&index).unwrap_or_default());
+    let mut sorted_entries = results;
     sorted_entries.sort_by(|a, b| {
-        b.is_dir
-            .cmp(&a.is_dir)
-            .then(b.triage_score.partial_cmp(&a.triage_score).unwrap_or(std::cmp::Ordering::Equal))
+        b.is_dir.cmp(&a.is_dir).then(b.triage_score.partial_cmp(&a.triage_score).unwrap_or(std::cmp::Ordering::Equal))
     });
-
     Ok(sorted_entries)
 }
 
