@@ -24,6 +24,11 @@ pub struct NoteFile {
     pub name: String,
     pub path: String,
     pub is_dir: bool,
+    pub title: String,
+    pub preview: String,
+    pub modified_at: u64,
+    pub todo_count: u32,
+    pub triage_score: f32,
 }
 
 // ─── Tauri Commands ──────────────────────────────────────────────────────────
@@ -80,24 +85,99 @@ async fn read_notes_directory(
         return Ok(vec![]);
     }
 
-    let mut entries: Vec<NoteFile> = fs::read_dir(&path)
+    let entries: Vec<NoteFile> = fs::read_dir(&path)
         .map_err(|e| e.to_string())?
         .filter_map(|e| e.ok())
         .map(|e| {
-            let is_dir = e.path().is_dir();
+            let path = e.path();
+            let is_dir = path.is_dir();
             let name = if is_dir {
-                e.file_name().to_string_lossy().to_string()
+                path.file_name().unwrap_or_default().to_string_lossy().to_string()
             } else {
-                e.path()
-                    .file_stem()
-                    .unwrap_or_default()
-                    .to_string_lossy()
-                    .to_string()
+                path.file_stem().unwrap_or_default().to_string_lossy().to_string()
             };
+
+            let mut title = name.clone();
+            let mut preview = String::new();
+            let mut modified_at = 0;
+            let mut todo_count = 0;
+
+            if let Ok(metadata) = e.metadata() {
+                if let Ok(modified) = metadata.modified() {
+                    modified_at = modified
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs();
+                }
+            }
+
+            // Deep Peek into Markdown files
+            if !is_dir && path.extension().map_or(false, |ext| ext == "md") {
+                if let Ok(content) = fs::read_to_string(&path) {
+                    // Extract first H1 for title
+                    for line in content.lines() {
+                        let trimmed = line.trim();
+                        if trimmed.starts_with("# ") {
+                            title = trimmed[2..].to_string();
+                            break;
+                        }
+                    }
+                    
+                    // Count Incomplete To-Dos: - [ ]
+                    todo_count = content.matches("- [ ]").count() as u32;
+                    
+                    // Extract preview (skipping the title)
+                    let h1_title = title.clone();
+                    let mut clean_content: String = content.lines()
+                        .filter(|l| {
+                            let t = l.trim();
+                            !t.is_empty() && !t.starts_with("# ") && t != &h1_title
+                        })
+                        .take(10)
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                        .replace("**", "")
+                        .replace("Source URL:", "")
+                        .replace("Ingested:", "")
+                        .replace("---", "");
+                    
+                    // Extra dedup: check if title is a prefix of the preview
+                    if clean_content.to_lowercase().starts_with(&h1_title.to_lowercase()) {
+                        clean_content = clean_content[h1_title.len()..].trim().to_string();
+                    }
+
+                    preview = clean_content.chars()
+                        .filter(|&c| c != '\n' && c != '\r')
+                        .take(150)
+                        .collect();
+                        
+                    if clean_content.len() > 150 {
+                        preview.push_str("...");
+                    }
+                }
+            }
+
+            // Triage Score Calculation:
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs();
+            
+            let age_secs = now.saturating_sub(modified_at);
+            let recency_score = 1.0 / ((age_secs as f32 / 86400.0) + 1.0); // Decay over days
+            let todo_score = (todo_count as f32 * 0.5).min(1.0); // Cap for score weighting
+            
+            let triage_score = (recency_score * 0.4) + (todo_score * 0.6);
+
             NoteFile {
                 name,
-                path: e.path().to_string_lossy().to_string(),
+                path: path.to_string_lossy().to_string(),
                 is_dir,
+                title,
+                preview,
+                modified_at,
+                todo_count,
+                triage_score,
             }
         })
         .filter(|f| {
@@ -109,13 +189,14 @@ async fn read_notes_directory(
         })
         .collect();
 
-    entries.sort_by(|a, b| {
+    let mut sorted_entries = entries;
+    sorted_entries.sort_by(|a, b| {
         b.is_dir
             .cmp(&a.is_dir)
-            .then(a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+            .then(b.triage_score.partial_cmp(&a.triage_score).unwrap_or(std::cmp::Ordering::Equal))
     });
 
-    Ok(entries)
+    Ok(sorted_entries)
 }
 
 /// Reads the content of a single .md file.
@@ -158,10 +239,108 @@ async fn create_note(
     Ok(full_path.to_string_lossy().to_string())
 }
 
-/// Deletes a note file.
+/// Splits a note into two separate files.
 #[tauri::command]
-async fn delete_note(path: String) -> Result<(), String> {
-    fs::remove_file(&path).map_err(|e| e.to_string())
+async fn split_note(
+    state: State<'_, AppState>,
+    path: String,
+    original_content: String,
+    new_title: String,
+    new_content: String,
+) -> Result<String, String> {
+    let old_path = PathBuf::from(&path);
+    let parent = old_path.parent().ok_or("Invalid original path")?;
+    
+    // 1. Update original note
+    fs::write(&old_path, original_content).map_err(|e| e.to_string())?;
+    
+    // 2. Create the child note
+    let safe_title = new_title
+        .chars()
+        .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' || c == ' ' { c } else { '-' })
+        .collect::<String>()
+        .trim()
+        .to_string();
+    
+    let new_filename = format!("{}.md", safe_title);
+    let new_path = parent.join(new_filename);
+    
+    fs::write(&new_path, new_content).map_err(|e| e.to_string())?;
+    
+    Ok(new_path.to_string_lossy().to_string())
+}
+
+/// Merges the content of a source note into a target note, then trashes the source.
+#[tauri::command]
+async fn merge_notes(state: State<'_, AppState>, target_path: String, source_path: String) -> Result<(), String> {
+    let source_content = fs::read_to_string(&source_path).map_err(|e| e.to_string())?;
+    let mut target_content = fs::read_to_string(&target_path).map_err(|e| e.to_string())?;
+    
+    target_content.push_str("\n\n--- MERGED CONTENT ---\n\n");
+    target_content.push_str(&source_content);
+    
+    fs::write(&target_path, target_content).map_err(|e| e.to_string())?;
+    
+    // Move source to trash using our Sovereign Protocol
+    move_to_trash(state, source_path).await
+}
+
+/// Moves a note to a hidden .trash directory within the vault.
+#[tauri::command]
+async fn move_to_trash(state: State<'_, AppState>, path: String) -> Result<(), String> {
+    let dir = state.notes_dir.lock().await.clone();
+    let trash_dir = PathBuf::from(&dir).join(".trash");
+    fs::create_dir_all(&trash_dir).map_err(|e| e.to_string())?;
+
+    let old_path = PathBuf::from(&path);
+    let filename = old_path.file_name().ok_or("Invalid filename")?;
+    
+    // Prefix with timestamp to avoid collisions
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    
+    let new_filename = format!("{}_{}", now, filename.to_string_lossy());
+    let new_path = trash_dir.join(new_filename);
+
+    fs::rename(&old_path, &new_path).map_err(|e| e.to_string())
+}
+
+/// Purges any files in the .trash folder older than 30 days.
+#[tauri::command]
+async fn purge_old_trash(state: State<'_, AppState>) -> Result<(), String> {
+    let dir = state.notes_dir.lock().await.clone();
+    let trash_dir = PathBuf::from(&dir).join(".trash");
+    
+    if !trash_dir.exists() {
+        return Ok(());
+    }
+
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    
+    let thirty_days_secs = 30 * 24 * 60 * 60;
+
+    if let Ok(entries) = fs::read_dir(trash_dir) {
+        for entry in entries.flatten() {
+            if let Ok(metadata) = entry.metadata() {
+                if let Ok(modified) = metadata.modified() {
+                    let mtime = modified
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs();
+                    
+                    if now.saturating_sub(mtime) > thirty_days_secs {
+                        let _ = fs::remove_file(entry.path());
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Renames a note file.
@@ -270,6 +449,13 @@ pub fn run() {
             // Start the file watcher
             watcher::start_watcher(app.handle().clone(), notes_dir_str);
 
+            // Autonomous Trash Purge (Startup Sweep)
+            let app_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let state = app_handle.state::<AppState>();
+                let _ = purge_old_trash(state).await;
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -281,12 +467,15 @@ pub fn run() {
             read_note,
             save_note,
             create_note,
-            delete_note,
+            move_to_trash,
+            purge_old_trash,
             rename_note,
             get_note_links,
             get_full_link_index,
             ask_ai,
             process_ocr_image,
+            split_note,
+            merge_notes,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

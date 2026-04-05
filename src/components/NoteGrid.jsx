@@ -1,20 +1,42 @@
 import React from 'react'
 
-const NoteGrid = ({ files, onOpenNote, onCreateNote }) => {
-  // Filter for only markdown files for the grid
-  const notes = files.filter(f => !f.is_dir)
+const NoteGrid = ({ files, onOpenNote, onCreateNote, refreshFiles }) => {
+  // Sort notes by the Triage Score (Tactical Radar Logic)
+  const notes = files
+    .filter(f => !f.is_dir)
+    .sort((a, b) => (b.triage_score || 0) - (a.triage_score || 0))
+
+  const timeAgo = (timestamp) => {
+    if (!timestamp) return ''
+    const seconds = Math.floor(Date.now() / 1000 - timestamp)
+    if (seconds < 60) return 'Just now'
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`
+    return `${Math.floor(seconds / 86400)}d ago`
+  }
 
   return (
     <div className="home-view">
-      <div className="link-index-header" style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span>TACTICAL VAULT EXPLORER // {notes.length} NODES</span>
-        <button 
-          className="command-btn" 
-          onClick={() => onCreateNote(`NEW_NOTE_${Date.now()}`)}
-          style={{ padding: '6px 12px', fontSize: '10px' }}
-        >
-          + MANIFEST NEW NODE
-        </button>
+      <div className="link-index-header">
+        <div className="header-intel">
+          <span className="bracket">[</span>
+          <span className="intel-text">TACTICAL VAULT RADAR // {notes.length} NODES</span>
+          <span className="bracket">]</span>
+        </div>
+        
+        <div className="header-actions">
+           <button className="sync-btn" onClick={refreshFiles} title="Sync Intelligence Archive">
+              <span className="sync-icon">☢️</span>
+              <span className="btn-text">SYNC INTEL</span>
+           </button>
+           <button 
+              className="manifest-btn" 
+              onClick={() => onCreateNote(`NEW_NODE_${Date.now()}`)}
+            >
+              <span className="btn-glow"></span>
+              <span className="btn-text">+ MANIFEST NEW NODE</span>
+            </button>
+        </div>
       </div>
 
       <div className="note-grid">
@@ -27,26 +49,30 @@ const NoteGrid = ({ files, onOpenNote, onCreateNote }) => {
           notes.map((note) => (
             <div 
               key={note.path} 
-              className={`note-card ${note.name.startsWith('GEMINI_') ? 'gemini-source' : ''}`}
+              className="note-card"
               onClick={() => onOpenNote(note)}
             >
-              <div className="note-card-title">
-                <span className="truncate">{note.name}</span>
-                {note.name.startsWith('GEMINI_') && (
-                   <span className="note-card-badge">GEMINI</span>
+              <div className="note-card-header">
+                <div className="note-card-title">
+                  {note.title || note.name.replace(/_/g, ' ')}
+                </div>
+                {note.todo_count > 0 && (
+                   <div className="todo-badge">
+                      <span className="todo-icon">!</span>
+                      <span className="todo-count">{note.todo_count} TASKS</span>
+                   </div>
                 )}
               </div>
               
-              <div className="note-card-snippet">
-                {/* Future: We could fetch snippets here, but for now we show name variation */}
-                // INCOMING DATA STREAM: {note.name}...
-                // SOURCE: LOCAL_VAULT
-                // STATUS: SECURE
+              <div className="note-card-body">
+                 <div className="note-card-preview">
+                    {note.preview || 'No Intel preview available.'}
+                 </div>
               </div>
 
-              <div className="note-card-meta">
-                <span>.MD</span>
-                <span>{new Date().toLocaleDateString()}</span>
+              <div className="note-card-footer">
+                <span className="file-type">.MD</span>
+                <span className="timestamp">{timeAgo(note.modified_at)}</span>
               </div>
             </div>
           ))

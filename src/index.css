@@ -837,9 +837,284 @@ body {
   }
 }
 
-/* --- Enchanted Grid (High-Density Multi-Column) ------------------- */
-.home-view { flex: 1; padding: 40px; overflow-y: auto; background: var(--bg-void); }
-.note-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; }
-.note-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; transition: all 0.3s ease; }
-.note-card:hover { border-color: var(--accent); transform: translateY(-4px); }
+/* --- Tactical Hub (Grid Overhaul) ---------------------------------- */
+.home-view {
+  flex: 1;
+  padding: 40px;
+  overflow-y: auto;
+  background: var(--bg-void);
+  animation: fadeIn 0.8s ease-out;
+}
+
+.link-index-header {
+  margin-bottom: 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-dim);
+  padding-bottom: 20px;
+}
+
+.header-intel {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  letter-spacing: 0.1rem;
+}
+
+.intel-text {
+  color: var(--text-dim);
+  margin: 0 10px;
+}
+
+.bracket {
+  color: var(--accent);
+  font-weight: bold;
+}
+
+.manifest-btn {
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  padding: 8px 16px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: bold;
+  letter-spacing: 0.1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.manifest-btn:hover {
+  background: var(--accent);
+  color: var(--bg-void);
+  box-shadow: 0 0 15px var(--accent);
+}
+
+.note-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 24px;
+}
+
+.note-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+  min-height: 200px;
+  max-height: 280px;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.note-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-5px);
+  background: rgba(35,35,35,0.8);
+  box-shadow: 0 12px 30px rgba(0,0,0,0.5);
+}
+
+.note-card-title {
+  color: var(--text-main);
+  font-weight: 700;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  margin-bottom: 12px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.note-card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.note-card-preview {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+  opacity: 0.8;
+  display: -webkit-box;
+  -webkit-line-clamp: 4; /* Prevent text overlap/cooking */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.note-card-footer {
+  margin-top: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid rgba(255,255,255,0.05);
+  padding-top: 10px;
+  font-size: 0.65rem;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+
+.file-type {
+  color: var(--accent);
+  font-weight: 800;
+  margin-right: 12px;
+  opacity: 0.8;
+}
+
+.timestamp {
+  opacity: 0.6;
+}
+
+.note-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.sync-btn {
+  background: rgba(0, 255, 204, 0.05);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.sync-btn:hover {
+  background: var(--accent);
+  color: #000;
+  box-shadow: 0 0 15px var(--accent);
+}
+
+.todo-badge {
+  background: #ff3e3e;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  font-size: 0.6rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-weight: 900;
+  box-shadow: 0 0 10px rgba(255, 62, 62, 0.4);
+  flex-shrink: 0;
+}
+
+.todo-icon {
+  animation: blink 1.5s infinite;
+}
+
+/* ── Suggestion Banner (AI Sentinel) ── */
+.suggestion-banner {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 320px;
+  background: rgba(10, 10, 10, 0.95);
+  border: 1px solid var(--accent);
+  border-left: 4px solid var(--accent);
+  padding: 16px;
+  border-radius: 4px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+  z-index: 1000;
+  animation: slideInRight 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+  backdrop-filter: blur(10px);
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(120%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.suggestion-intel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.suggestion-badge {
+  background: var(--accent);
+  color: #000;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 2px;
+  width: fit-content;
+  letter-spacing: 1px;
+}
+
+.suggestion-text {
+  font-size: 0.85rem;
+  color: var(--text-heading);
+  line-height: 1.4;
+}
+
+.suggestion-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.suggest-btn {
+  flex: 1;
+  padding: 8px;
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+}
+
+.suggest-btn.split {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: #000;
+}
+
+.suggest-btn.split:hover {
+  background: transparent;
+  color: var(--accent);
+}
+
+.suggest-btn.dismiss {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: var(--text-dim);
+}
+
+.suggest-btn.dismiss:hover {
+  background: rgba(255,255,255,0.1);
+  color: white;
+}
 

@@ -110,10 +110,46 @@ const wikilinkPlugin = ViewPlugin.fromClass(
 )
 
 // ── EditorView Component ──────────────────────────────────────────────────────
-export default function EditorView({ activeFile, content, onChange, onOpenScanner }) {
+export default function EditorView({ activeFile, content, files, onChange, onOpenScanner, onSplitNote, onMergeNote }) {
   const [showSlashMenu, setShowSlashMenu] = useState(false)
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 })
   const menuRef = useRef(null)
+  const editorRef = useRef(null)
+
+  // ── Suggestive Intelligence State ──
+  const [suggestion, setSuggestion] = useState(null)
+  const [dismissed, setDismissed] = useState(false)
+  const lastCheck = useRef('')
+
+  // Reset suggestions when switching notes
+  useEffect(() => {
+    setSuggestion(null)
+    setDismissed(false)
+    lastCheck.current = ''
+  }, [activeFile?.path])
+
+  // Topic Drift Sentinel: Debounced AI check
+  useEffect(() => {
+    if (!content || dismissed || content === lastCheck.current) return
+    
+    const timer = setTimeout(async () => {
+      lastCheck.current = content
+      // Only check if note is > 500 chars (bloat detection)
+      if (content.length < 500) return 
+
+      try {
+        const query = "Analyze this note content. If it contains two or more completely separate topics or projects that could function as independent tasks, suggest a split. If it is focused, return 'OK'. Otherwise, provide a 1-sentence suggestion."
+        const response = await invoke('ask_ai', { query, context: content.substring(0, 2000) })
+        if (response.reply && !response.reply.startsWith('OK')) {
+          setSuggestion(response.reply)
+        }
+      } catch (err) {
+        console.error('Topic Drift search failed:', err)
+      }
+    }, 5000) // 5s idle peek
+
+    return () => clearTimeout(timer)
+  }, [content, dismissed])
 
   const handleUpdate = (update) => {
     if (update.docChanged) {
@@ -129,6 +165,45 @@ export default function EditorView({ activeFile, content, onChange, onOpenScanne
     }
   }
 
+  const handleManualSplit = () => {
+    if (!editorRef.current) return
+    const state = editorRef.current.view.state
+    const cursor = state.selection.main.head
+    const fullText = state.doc.toString()
+    
+    const beforeContent = fullText.slice(0, cursor)
+    const afterContent = fullText.slice(cursor)
+    
+    if (!afterContent.trim()) {
+      alert("// SPLIT CANCELLED: No content identified below cursor.")
+      return
+    }
+
+    const newTitle = prompt("// ASSIGN CHILD NODE TITLE:", `SPLIT_${activeFile.name}_${Date.now()}`)
+    if (newTitle) {
+      onSplitNote(newTitle, beforeContent, afterContent)
+    }
+  }
+
+  const handleManualMerge = () => {
+    const sourceName = prompt("// IDENTIFY NODE TO ABSORB (Name):")
+    if (!sourceName) return
+
+    const sourceFile = files.find(f => 
+      !f.is_dir && 
+      (f.name.toLowerCase() === sourceName.toLowerCase() || 
+       f.title?.toLowerCase() === sourceName.toLowerCase())
+    )
+
+    if (sourceFile) {
+      if (confirm(`// CONFIRM ABSORPTION of [${sourceFile.name}] into [${activeFile.name}]?`)) {
+        onMergeNote(sourceFile)
+      }
+    } else {
+      alert("// TARGET NODE NOT IDENTIFIED IN LOCAL SECTOR.")
+    }
+  }
+
   // ── Adaptive Prose Purification ──────────────────────────────────
   const cleanContent = useMemo(() => {
     if (!content || !activeFile) return ''
@@ -141,6 +216,8 @@ export default function EditorView({ activeFile, content, onChange, onOpenScanne
 
   const slashOptions = [
     { label: 'SCAN: Image to Note', action: onOpenScanner, icon: <IconFlash /> },
+    { label: 'SPLIT: Cellular Division', action: handleManualSplit, icon: '⚔️' },
+    { label: 'MERGE: Absorption Protocol', action: handleManualMerge, icon: '🔯' },
     { label: 'LINK: Build Connection', action: () => {}, icon: '⬡' },
     { label: 'NEW: Atomic Note', action: () => {}, icon: '+' },
   ]
@@ -170,14 +247,15 @@ export default function EditorView({ activeFile, content, onChange, onOpenScanne
         </div>
       </div>
 
-      {/* CodeMirror */}
-      <div className="codemirror-wrap" style={{ position: 'relative' }}>
+      {/* CodeMirror & Suggestion Layer */}
+      <div className="codemirror-wrap" style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
         <CodeMirror
+          ref={editorRef}
           value={cleanContent}
           onChange={onChange}
           onUpdate={handleUpdate}
           height="100%"
-          autoFocus={true} /* Grab focus automatically */
+          autoFocus={true}
           extensions={[
             markdown({ base: markdownLanguage, codeLanguages: languages }),
             cyberNoir,
@@ -201,6 +279,24 @@ export default function EditorView({ activeFile, content, onChange, onOpenScanne
             history: true,
           }}
         />
+
+        {/* Sovereign Suggestion Banner (Topic Drift Sentinel) */}
+        {suggestion && !dismissed && (
+          <div className="suggestion-banner">
+            <div className="suggestion-intel">
+              <span className="suggestion-badge">AI INSIGHT</span>
+              <span className="suggestion-text">{suggestion}</span>
+            </div>
+            <div className="suggestion-actions">
+              <button className="suggest-btn split" onClick={handleManualSplit}>
+                APPROVE SPLIT
+              </button>
+              <button className="suggest-btn dismiss" onClick={() => setDismissed(true)}>
+                DISMISS
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Slash Menu */}
         {showSlashMenu && (

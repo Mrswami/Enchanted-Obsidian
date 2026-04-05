@@ -122,18 +122,19 @@ function App() {
     }
   }, [refreshFiles, openNote])
 
-  // ── Delete Active Note ────────────────────────────────────────────
+  // ── Delete Active Note (Sovereign Trash Protocol) ─────────────────
   const deleteNote = useCallback(async (file) => {
     try {
-      await invoke('delete_note', { path: file.path })
+      await invoke('move_to_trash', { path: file.path })
       if (activeFile?.path === file.path) {
         setActiveFile(null)
         setNoteContent('')
+        setView('grid')
       }
       await refreshFiles()
       await refreshIndex()
     } catch (err) {
-      console.error('Failed to delete note:', err)
+      console.error('Failed to move note to trash:', err)
     }
   }, [activeFile, refreshFiles, refreshIndex])
 
@@ -148,6 +149,51 @@ function App() {
       await refreshIndex()
     } catch (err) {
       console.error('Failed to rename note:', err)
+    }
+  }, [activeFile, refreshFiles, refreshIndex])
+
+  // ── Split Note (Cellular Division) ────────────────────────────────
+  const splitNote = useCallback(async (newTitle, originalContent, newContent) => {
+    if (!activeFile) return
+    try {
+      setSaveStatus('saving')
+      const newPath = await invoke('split_note', {
+        path: activeFile.path,
+        originalContent,
+        newTitle,
+        newContent
+      })
+      await refreshFiles()
+      await refreshIndex()
+      setSaveStatus('saved')
+      
+      // Open the new child note instantly
+      const newFile = { name: newTitle, path: newPath, is_dir: false }
+      openNote(newFile)
+    } catch (err) {
+      console.error('Failed to split note:', err)
+    }
+  }, [activeFile, refreshFiles, refreshIndex, openNote])
+
+  // ── Merge Notes (Absorption Protocol) ──────────────────────────
+  const mergeNote = useCallback(async (sourceFile) => {
+    if (!activeFile) return
+    try {
+      setSaveStatus('saving')
+      await invoke('merge_notes', {
+        targetPath: activeFile.path,
+        sourcePath: sourceFile.path
+      })
+      
+      // Reload current note with new content
+      const updatedContent = await invoke('read_note', { path: activeFile.path })
+      setNoteContent(updatedContent)
+      
+      await refreshFiles()
+      await refreshIndex()
+      setSaveStatus('saved')
+    } catch (err) {
+      console.error('Failed to merge notes:', err)
     }
   }, [activeFile, refreshFiles, refreshIndex])
 
@@ -238,13 +284,17 @@ function App() {
             files={files}
             onOpenNote={openNote}
             onCreateNote={createNote}
+            refreshFiles={refreshFiles}
           />
         ) : (
           <EditorView
             activeFile={activeFile}
             content={noteContent}
+            files={files}
             onChange={handleContentChange}
             onOpenScanner={() => setShowScanner(true)}
+            onSplitNote={splitNote}
+            onMergeNote={mergeNote}
           />
         )}
 
