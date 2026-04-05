@@ -158,22 +158,29 @@ async fn read_notes_directory(
                     }
                     todo_count = content.matches("- [ ]").count() as u32;
                     let h1_title = title.clone();
-                    let mut clean_content: String = content.lines()
-                        .filter(|l| {
-                            let t = l.trim();
-                            !t.is_empty() && !t.starts_with("# ") && t != &h1_title
-                        })
-                        .take(10)
-                        .collect::<Vec<_>>()
-                        .join(" ")
-                        .replace("**", "")
-                        .replace("---", "");
+                    let mut clean_preview = String::new();
                     
-                    if clean_content.to_lowercase().starts_with(&h1_title.to_lowercase()) {
-                        clean_content = clean_content[h1_title.len()..].trim().to_string();
+                    // PROSE SEEKER: Skip metadata, links, and system noise
+                    for line in content.lines() {
+                        let t = line.trim();
+                        if t.is_empty() || t.starts_with("#") || t.starts_with("---") || t == &h1_title {
+                            continue;
+                        }
+                        
+                        // Filter common metadata keys and raw links
+                        let lower = t.to_lowercase();
+                        if lower.starts_with("source:") || lower.starts_with("source url:") || 
+                           lower.starts_with("ingested:") || lower.starts_with("http") || 
+                           lower.starts_with("gemini://") || lower.starts_with(">") {
+                            continue;
+                        }
+                        
+                        clean_preview = t.to_string();
+                        break;
                     }
-                    preview = clean_content.chars().take(150).collect();
-                    if clean_content.len() > 150 { preview.push_str("..."); }
+
+                    preview = clean_preview.chars().take(150).collect();
+                    if clean_preview.len() > 150 { preview.push_str("..."); }
                 }
             }
 
@@ -190,7 +197,15 @@ async fn read_notes_directory(
         })
         .collect();
 
-    for res in &results { index.cache.insert(res.path.clone(), res.clone()); }
+    let mut new_cache = HashMap::new();
+    for res in &results { 
+        // Populate the fresh cache with live results
+        new_cache.insert(res.path.clone(), res.clone()); 
+    }
+    
+    // Total Sync: Replace the old index cache with our fresh, audited one
+    index.cache = new_cache;
+    
     let _ = fs::write(&index_path, serde_json::to_string(&index).unwrap_or_default());
     let mut sorted_entries = results;
     sorted_entries.sort_by(|a, b| {

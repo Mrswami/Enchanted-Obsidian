@@ -36,3 +36,8 @@ lerna-debug.log*
 *.njsproj
 *.sln
 *.sw?
+
+# Vault Intelligence & Caches
+.radar_index.json
+.trash/
+enchanted_obsidian_*.png

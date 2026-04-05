@@ -254,8 +254,9 @@ function App() {
           </svg>
           <span className="logo-text-glam">ENCHANTED OBSIDIAN</span>
         </div>
-        <span className="titlebar-sep">·</span>
-        <span className="titlebar-path">{activeFile ? activeFile.path : notesDir || ''}</span>
+        <div className="titlebar-path">
+          {activeFile ? activeFile.path : 'VAULT SECTOR'}
+        </div>
         <div className="titlebar-status">
           <span className="titlebar-path" style={{ fontSize: '9px', opacity: 0.5 }}>
             {saveStatus === 'saving' ? 'SYNCING...' : activeFile ? 'SECURE' : ''}
