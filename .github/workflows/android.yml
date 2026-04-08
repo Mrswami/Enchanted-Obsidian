@@ -52,5 +52,8 @@ jobs:
       - name: upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: enchanted-obsidian-android-apk
-          path: src-tauri/gen/android/app/build/outputs/apk/release/*.apk
+          name: enchanted-obsidian-android-build
+          path: |
+            src-tauri/gen/android/app/build/outputs/**/*.apk
+            src-tauri/gen/android/app/build/outputs/**/*.aab
+          if-no-files-found: warn
