@@ -124,6 +124,13 @@ export default function Sidebar({ files, activeFile, currentSubPath, onOpenNote,
         <div className="sidebar-header-zen">
           <div className="command-strip-zen">
             <button
+               className={`command-btn ${currentView === 'mission-control' ? 'active' : ''}`}
+               title="Mission Control"
+               onClick={() => onSwitchView(currentView === 'vault' ? 'mission-control' : 'vault')}
+            >
+              [ {currentView === 'vault' ? 'COMMAND' : 'VAULT'} ]
+            </button>
+            <button
                className="command-btn command-btn-lime"
                title="Scan Image"
                onClick={onOpenScanner}

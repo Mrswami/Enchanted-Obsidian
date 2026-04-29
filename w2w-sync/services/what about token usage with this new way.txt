@@ -1,0 +1,2 @@
+token usage
+what about token usage with this new way of indexing or scanning files is this a more token costly way of doing things or is the trade off negligble ?

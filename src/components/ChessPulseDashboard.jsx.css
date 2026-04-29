@@ -1,0 +1,205 @@
+
+.chesspulse-container {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.chesspulse-header {
+  margin-bottom: 4rem;
+}
+
+.mission-text {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  letter-spacing: 4px;
+  color: var(--teal);
+  opacity: 0.8;
+  display: block;
+  margin-bottom: 1rem;
+}
+
+.mission-acronym {
+  font-weight: 900;
+  color: white;
+}
+
+.chesspulse-title {
+  font-size: 3rem;
+  font-weight: 900;
+  background: linear-gradient(135deg, #fff 0%, var(--teal) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 0.5rem;
+}
+
+.chesspulse-subtitle {
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.tournament-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+  text-align: left;
+}
+
+.tournament-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  padding: 1.5rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(10px);
+  position: relative;
+  overflow: hidden;
+}
+
+.tournament-card:hover {
+  transform: translateY(-8px);
+  border-color: var(--teal);
+  box-shadow: 0 20px 40px -20px rgba(0, 255, 200, 0.2);
+}
+
+.platform-tag {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 20px;
+  display: inline-block;
+  letter-spacing: 1px;
+}
+
+.chess-com { background: #81b64c; color: white; }
+.lichess { background: #333; color: #bababa; }
+.fide { background: #00529b; color: white; }
+
+.status-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.7rem;
+  color: var(--teal);
+  font-weight: 800;
+  padding: 4px 10px;
+  background: rgba(0, 255, 200, 0.1);
+  border-radius: 6px;
+}
+
+.status-live {
+  color: var(--accent);
+  background: rgba(255, 70, 70, 0.1);
+}
+
+.pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 0 rgba(255, 70, 70, 0.7);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 70, 70, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(255, 70, 70, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 70, 70, 0); }
+}
+
+.hype-meter {
+  height: 6px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 1rem;
+}
+
+.hype-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--teal), var(--accent));
+  transition: width 1s ease-in-out;
+}
+
+.watch-btn {
+  width: 100%;
+  margin-top: 1.5rem;
+  padding: 0.8rem;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  color: white;
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  letter-spacing: 1px;
+}
+
+.watch-btn:hover {
+  background: var(--teal);
+  color: #000;
+  border-color: var(--teal);
+}
+
+.subscribe-section {
+  margin-top: 6rem;
+  padding: 4rem;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 24px;
+  border: 1px solid var(--card-border);
+}
+
+.sub-input {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--card-border);
+  color: white;
+  padding: 0.8rem 1.5rem;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 300px;
+  margin-right: 1rem;
+  outline: none;
+  font-family: inherit;
+}
+
+.sub-input:focus {
+  border-color: var(--teal);
+}
+
+.sub-btn {
+  background: var(--teal);
+  color: #000;
+  border: none;
+  padding: 0.8rem 2rem;
+  border-radius: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sub-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px -5px rgba(0, 255, 200, 0.3);
+}
+
+.search-pulse {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--card-border);
+  color: white;
+  padding: 0.6rem 1rem;
+  border-radius: 10px;
+  width: 100%;
+  max-width: 400px;
+  margin-bottom: 3rem;
+  outline: none;
+}

@@ -1,5 +1,18 @@
 {
   "projects": {
     "default": "ideaapp-209463"
-  }
+  },
+  "targets": {
+    "ideaapp-209463": {
+      "hosting": {
+        "app": [
+          "ideaapp-209463"
+        ],
+        "ironclad": [
+          "ironclad-verify-portal"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }

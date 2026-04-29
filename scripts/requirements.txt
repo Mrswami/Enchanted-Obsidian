@@ -2,3 +2,4 @@ python-dotenv
 playwright
 beautifulsoup4
 discord.py
+requests

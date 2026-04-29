@@ -6,10 +6,12 @@ import EditorView from './components/EditorView'
 import ContextPanel from './components/ContextPanel'
 import Scanner from './components/Scanner'
 import NoteGrid from './components/NoteGrid'
+import MissionControl from './components/MissionControl'
 import './index.css'
 import './App.css'
 
 function App() {
+  const [currentView, setCurrentView] = useState('vault') // 'vault' | 'mission-control'
   const [notesDir, setNotesDir] = useState('')
   const [files, setFiles] = useState([])
   const [activeFile, setActiveFile] = useState(null)   // { name, path }
@@ -18,12 +20,18 @@ function App() {
   const [saveStatus, setSaveStatus] = useState('saved') // 'saved' | 'saving'
   const [showScanner, setShowScanner] = useState(false)
   const [view, setView] = useState('grid') // 'grid' | 'editor'
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [isContextOpen, setIsContextOpen] = useState(false)
+  const [manifest, setManifest] = useState({})
+  const [activeSector, setActiveSector] = useState('ALL') // 'ALL' | 'enchanted' | 'chesspulse' | etc.
   const saveTimer = useRef(null)
 
   const handleGoHome = useCallback(() => {
     setActiveFile(null)
     setNoteContent('')
     setView('grid')
+    setIsSidebarOpen(false)
+    setIsContextOpen(false)
   }, [])
 
   // ── Bootstrap ────────────────────────────────────────────────────
@@ -66,6 +74,21 @@ function App() {
     refreshFiles(currentSubPath)
   }, [currentSubPath, refreshFiles])
 
+  const refreshManifest = useCallback(async () => {
+    try {
+      const data = await invoke('get_ingestion_manifest')
+      setManifest(data)
+    } catch (err) {
+      console.error('Failed to read manifest:', err)
+    }
+  }, [])
+
+  useEffect(() => {
+    const timer = setInterval(refreshManifest, 15000)
+    refreshManifest()
+    return () => clearInterval(timer)
+  }, [refreshManifest])
+
   const refreshIndex = useCallback(async () => {
     try {
       const idx = await invoke('get_full_link_index')
@@ -84,6 +107,8 @@ function App() {
       setNoteContent(content)
       setSaveStatus('saved')
       setView('editor')
+      setIsSidebarOpen(false) // Close sidebar on mobile after choosing a file
+      setIsContextOpen(false)
     } catch (err) {
       console.error('Failed to open note:', err)
     }
@@ -121,6 +146,14 @@ function App() {
       console.error('Failed to create note:', err)
     }
   }, [refreshFiles, openNote])
+
+  // Sector-based filtering logic: The 'Sovereign Shift'
+  const filteredFiles = useMemo(() => {
+    if (activeSector === 'ALL') return files
+    // Matches folders starting with 'Sector_' or the raw sector name
+    const sectorFolderName = `Sector_${activeSector.charAt(0).toUpperCase() + activeSector.slice(1)}`
+    return files.filter(f => f.path.includes(sectorFolderName) || f.path.includes(activeSector))
+  }, [files, activeSector])
 
   // ── Delete Active Note (Sovereign Trash Protocol) ─────────────────
   const deleteNote = useCallback(async (file) => {
@@ -197,6 +230,15 @@ function App() {
     }
   }, [activeFile, refreshFiles, refreshIndex])
 
+  // ── View Management ───────────────────────────────────────────────
+  const handleSwitchView = useCallback((view) => {
+    setCurrentView(view)
+    if (view === 'mission-control') {
+      setActiveFile(null)
+      setNoteContent('')
+    }
+  }, [])
+
   // ── AI Command Handler ───────────────────────────────────────────
   const handleAiQuery = useCallback(async (query, temporalContext = '') => {
     // Collect context (current note content + link graph + historical context)
@@ -239,9 +281,18 @@ function App() {
   }, [files, openNote])
 
   return (
-    <div className="app-shell">
-      {/* Title Bar */}
+    <div className={`app-shell ${isSidebarOpen ? 'sb-open' : ''} ${isContextOpen ? 'ctx-open' : ''}`}>
+      {/* Title Bar - Optimized for Mobile Navigation */}
       <header className="titlebar">
+        {/* Mobile Sidebar Toggle */}
+        <button className="mobile-only nav-btn" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
+
         <div className="titlebar-logo" style={{ cursor: 'pointer' }} onClick={handleGoHome}>
           <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
             <path d="M8 1L2 5L8 15L14 5L8 1Z" fill="url(#prism-logo-gradient)" />
@@ -252,37 +303,67 @@ function App() {
               </linearGradient>
             </defs>
           </svg>
-          <span className="logo-text-glam">ENCHANTED OBSIDIAN</span>
+          <span className="logo-text-glam mobile-hide">ENCHANTED OBSIDIAN</span>
         </div>
+        
         <div className="titlebar-path">
-          {activeFile ? activeFile.path : 'VAULT SECTOR'}
+          {activeFile ? activeFile.name : 'VAULT SECTOR'}
         </div>
+
         <div className="titlebar-status">
-          <span className="titlebar-path" style={{ fontSize: '9px', opacity: 0.5 }}>
-            {saveStatus === 'saving' ? 'SYNCING...' : activeFile ? 'SECURE' : ''}
-          </span>
-          {activeFile && <div className={`status-dot ${saveStatus}`} />}
+          {activeFile && (
+            <div className="status-group">
+              <span className="titlebar-path status-label">
+                {saveStatus === 'saving' ? 'SYNCING' : 'SECURE'}
+              </span>
+              <div className={`status-dot ${saveStatus}`} />
+            </div>
+          )}
+          
+          {/* Mobile Context Toggle */}
+          <button className="mobile-only nav-btn" onClick={() => setIsContextOpen(!isContextOpen)}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: isContextOpen ? 'var(--teal)' : 'inherit' }}>
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="16" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+          </button>
         </div>
       </header>
 
       <div className="app-main">
+        {/* Backdrop for closing mobile panels */}
+        {(isSidebarOpen || isContextOpen) && (
+          <div 
+            className="mobile-backdrop overlay-active" 
+            onClick={() => { setIsSidebarOpen(false); setIsContextOpen(false); }} 
+          />
+        )}
         {/* Sidebar */}
         <Sidebar
           files={files}
           activeFile={activeFile}
           currentSubPath={currentSubPath}
+          currentView={currentView}
           onOpenNote={openNote}
           onCreateNote={createNote}
           onDeleteNote={deleteNote}
           onRenameNote={renameNote}
           onNavigateFolder={setCurrentSubPath}
           onOpenScanner={() => setShowScanner(true)}
+          onSwitchView={handleSwitchView}
         />
 
         {/* Main Interface Switching Logic */}
-        {view === 'grid' ? (
+        {currentView === 'mission-control' ? (
+          <MissionControl />
+        ) : (
+          view === 'grid' ? (
           <NoteGrid
-            files={files}
+            files={filteredFiles}
+            activeSector={activeSector}
+            setActiveSector={setActiveSector}
+            manifest={manifest}
             onOpenNote={openNote}
             onCreateNote={createNote}
             refreshFiles={refreshFiles}
@@ -297,7 +378,8 @@ function App() {
             onSplitNote={splitNote}
             onMergeNote={mergeNote}
           />
-        )}
+        )
+      )}
 
         {/* Context Panel */}
         <ContextPanel

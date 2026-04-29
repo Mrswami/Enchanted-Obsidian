@@ -30,6 +30,13 @@
   --font-sans: 'Inter', system-ui, sans-serif;
 }
 
+.mobile-only { display: none !important; }
+
+@media (max-width: 1024px) {
+  .mobile-only { display: flex !important; }
+  .mobile-hide { display: none !important; }
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -602,6 +609,50 @@ body {
   100% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0); }
 }
 
+.nav-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  padding: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+}
+
+.nav-btn:hover {
+  color: var(--text-main);
+}
+
+.status-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-label {
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  opacity: 0.4;
+}
+
+.mobile-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 95;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.mobile-backdrop.overlay-active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 /* ── Scrollbars ── */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -807,9 +858,9 @@ body {
     border-right: none;
   }
 
-  /* Active states for drawers (triggered by UI state) */
-  .sidebar.active { transform: translateX(0); }
-  .context-panel.active { transform: translateX(0); }
+  /* Active states for drawers (triggered by UI state on parent) */
+  .sb-open .sidebar { transform: translateX(0); }
+  .ctx-open .context-panel { transform: translateX(0); }
 
   .editor-panel {
     flex: 1;
@@ -840,8 +891,9 @@ body {
 /* --- Tactical Hub (Grid Overhaul) ---------------------------------- */
 .home-view {
   flex: 1;
-  padding: 40px;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* Constraints to trigger scroll in children */
   background: var(--bg-void);
   animation: fadeIn 0.8s ease-out;
 }
@@ -851,8 +903,135 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid var(--border-dim);
+  border-bottom: 1px solid var(--border);
   padding-bottom: 20px;
+}
+
+/* ── Sovereign Command Header ── */
+.command-header-sector {
+  padding: 24px 40px;
+  background: linear-gradient(180deg, var(--bg-surface), transparent);
+  border-bottom: 1px solid var(--border);
+}
+
+.sector-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 1024px) {
+  .command-header-sector { padding: 16px; }
+  .sector-grid { 
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 8px; /* Room for scrollbar logic */
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+.sector-card {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  min-width: 180px; /* Force minimum size in scroll overflow */
+}
+
+.sector-card::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background: var(--accent-color);
+  box-shadow: 0 0 15px var(--accent-color);
+}
+
+.sector-card:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent-color);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.sector-icon {
+  font-size: 24px;
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.2));
+}
+
+.sector-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.sector-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+}
+
+.sector-status {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--accent-color);
+  letter-spacing: 0.05em;
+  margin-top: 2px;
+  font-weight: 500;
+}
+
+/* ── SIM Fallout Alerts ── */
+.sim-alert {
+  margin: 16px 40px;
+  background: rgba(255, 166, 0, 0.1);
+  border: 1px solid rgba(255, 166, 0, 0.4);
+  border-radius: 8px;
+  padding: 12px 20px;
+  animation: intel-pulse 4s infinite;
+}
+
+.alert-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.alert-icon {
+  font-size: 20px;
+  filter: drop-shadow(0 0 8px orange);
+}
+
+.alert-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.alert-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 800;
+  color: #ffca28;
+  letter-spacing: 0.1em;
+}
+
+@keyframes intel-pulse {
+  0% { box-shadow: 0 0 0px rgba(255, 166, 0, 0); }
+  50% { box-shadow: 0 0 20px rgba(255, 166, 0, 0.1); border-color: rgba(255, 166, 0, 0.8); }
+  100% { box-shadow: 0 0 0px rgba(255, 166, 0, 0); }
+}
+
+@media (max-width: 1024px) {
+  .sim-alert { margin: 12px 16px; }
 }
 
 .header-intel {
@@ -894,9 +1073,20 @@ body {
 }
 
 .note-grid {
+  flex: 1;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 24px;
+  padding: 40px;
+  overflow-y: auto; /* The Grid is now the Scroll Anchor */
+}
+
+@media (max-width: 600px) {
+  .note-grid {
+    grid-template-columns: 1fr;
+    padding: 20px;
+    gap: 16px;
+  }
 }
 
 .note-card {

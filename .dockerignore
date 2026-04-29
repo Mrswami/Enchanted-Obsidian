@@ -1,0 +1,11 @@
+.git
+.github
+node_modules/
+venv/
+dist/
+src-tauri/target/
+*.log
+*.vbs
+*.bat
+scripts/venv/
+.DS_Store

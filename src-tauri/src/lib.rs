@@ -40,7 +40,7 @@ struct RadarIndex {
 
 // ─── Tauri Commands ──────────────────────────────────────────────────────────
 
-/// Initializes or updates the AI Manager with a specific API key.
+/// Initializes or updates the AI Manager with a specific API key (Gemini).
 #[tauri::command]
 async fn init_ai(state: State<'_, AppState>, api_key: String) -> Result<String, String> {
     let mgr = ai::AiManager::new(Some(api_key))?;
@@ -380,12 +380,6 @@ async fn rename_note(
     Ok(new_path.to_string_lossy().to_string())
 }
 
-/// Scans a single file's content and returns its [[Wikilinks]].
-#[tauri::command]
-async fn get_note_links(content: String) -> Result<Vec<String>, String> {
-    Ok(extract_wikilinks(&content))
-}
-
 /// Builds the full link index for all notes in the directory.
 /// Returns a map of { note_name -> { file_name, file_path, links[] } }
 #[tauri::command]
@@ -394,6 +388,23 @@ async fn get_full_link_index(
 ) -> Result<HashMap<String, NoteLinkData>, String> {
     let dir = state.notes_dir.lock().await.clone();
     Ok(build_full_index(&dir))
+}
+
+/// Reads the Sovereign Ingestion Manifest (SIM) from the vault.
+#[tauri::command]
+async fn get_ingestion_manifest(
+    state: State<'_, AppState>
+) -> Result<serde_json::Value, String> {
+    let dir = state.notes_dir.lock().await.clone();
+    let path = std::path::PathBuf::from(dir).join("ingestion_manifest.json");
+    
+    if !path.exists() {
+        return Ok(serde_json::json!({}));
+    }
+
+    let content = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
+    let json: serde_json::Value = serde_json::from_str(&content).map_err(|e| e.to_string())?;
+    Ok(json)
 }
 
 /// Asks Gemini a question with full system context.
@@ -485,12 +496,12 @@ pub fn run() {
             move_to_trash,
             purge_old_trash,
             rename_note,
-            get_note_links,
             get_full_link_index,
             ask_ai,
             process_ocr_image,
             split_note,
             merge_notes,
+            get_ingestion_manifest,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

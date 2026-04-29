@@ -19,23 +19,29 @@ pub enum AiAction {
 
 pub struct AiManager {
     client: Client,
-    api_key: String,
+    gemini_key: Option<String>,
+    azure_key: Option<String>,
+    azure_endpoint: Option<String>,
 }
 
 impl AiManager {
-    /// Creates a new AiManager. If api_key is None, it attempts to load from .env.
-    pub fn new(api_key: Option<String>) -> Result<Self, String> {
-        let key = if let Some(k) = api_key {
-            k
-        } else {
-            dotenvy::dotenv().ok();
-            env::var("GEMINI_API_KEY")
-                .map_err(|_| "GEMINI_API_KEY not found in environment".to_string())?
-        };
+    /// Creates a new AiManager, loading credentials from the environment.
+    pub fn new(gemini_override: Option<String>) -> Result<Self, String> {
+        dotenvy::dotenv().ok();
         
+        let gemini_key = gemini_override.or_else(|| env::var("GEMINI_API_KEY").ok());
+        let azure_key = env::var("AZURE_AI_KEY").ok();
+        let azure_endpoint = env::var("AZURE_AI_ENDPOINT").ok();
+
+        if gemini_key.is_none() && azure_key.is_none() {
+            return Err("No AI credentials found (Gemini or Azure). Check your .env file.".to_string());
+        }
+
         Ok(Self {
             client: Client::new(),
-            api_key: key,
+            gemini_key,
+            azure_key,
+            azure_endpoint,
         })
     }
 
@@ -51,6 +57,17 @@ impl AiManager {
     }
 
     pub async fn process_image(&self, base64_image: &str) -> Result<String, String> {
+        // Prioritize Azure if configured
+        if let (Some(key), Some(endpoint)) = (&self.azure_key, &self.azure_endpoint) {
+            match self.azure_ocr(base64_image, key, endpoint).await {
+                Ok(text) => return Ok(text),
+                Err(e) => {
+                    log::error!("Azure OCR failed, falling back to Gemini: {}", e);
+                }
+            }
+        }
+
+        // Fallback to Gemini
         let prompt = "
 You are the OCR Eye of 'EnchantedObsidian'. 
 Transcribe all handwriting and text in this image precisely.
@@ -80,10 +97,61 @@ Output ONLY the clean Markdown transcription.
         Ok(text.to_string())
     }
 
+    async fn azure_ocr(&self, base64_image: &str, key: &str, endpoint: &str) -> Result<String, String> {
+        use base64::{Engine as _, engine::general_purpose};
+        
+        let image_data = general_purpose::STANDARD
+            .decode(base64_image)
+            .map_err(|e| format!("Failed to decode base64: {}", e))?;
+
+        // Format endpoint to ensure it has the correct API path
+        let base_url = endpoint.trim_end_matches('/');
+        let url = format!("{}/computervision/imageanalysis:analyze?api-version=2023-02-01-preview&features=read", base_url);
+
+        let response = self.client.post(&url)
+            .header("Ocp-Apim-Subscription-Key", key)
+            .header("Content-Type", "application/octet-stream")
+            .body(image_data)
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+
+        if !response.status().is_success() {
+            let err_text = response.text().await.unwrap_or_default();
+            return Err(format!("Azure API Error ({}): {}", url, err_text));
+        }
+
+        let res_json: serde_json::Value = response.json().await.map_err(|e| e.to_string())?;
+        
+        // Extract text from Azure Vision 4.0 response
+        let mut full_text = String::new();
+        if let Some(read_result) = res_json["readResult"].as_object() {
+            if let Some(blocks) = read_result["blocks"].as_array() {
+                for block in blocks {
+                    if let Some(lines) = block["lines"].as_array() {
+                        for line in lines {
+                            if let Some(text) = line["text"].as_str() {
+                                full_text.push_str(text);
+                                full_text.push('\n');
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if full_text.is_empty() {
+            return Err("Azure OCR returned no text".to_string());
+        }
+
+        Ok(full_text)
+    }
+
     async fn post_to_gemini(&self, body: serde_json::Value) -> Result<serde_json::Value, String> {
+        let key = self.gemini_key.as_ref().ok_or("Gemini API key not configured")?;
         let url = format!(
             "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={}",
-            self.api_key
+            key
         );
 
         let response = self.client.post(&url)

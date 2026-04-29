@@ -1,0 +1,11 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Ironclad: Immutable Receipts
+    match /receipts/{receiptId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null; // Managed by Cloud Functions
+      allow update, delete: if false; // Immutability Guard
+    }
+  }
+}

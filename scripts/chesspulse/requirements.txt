@@ -1,0 +1,13 @@
+requests
+pydantic
+gunicorn
+uvicorn
+firebase-admin
+fastapi
+python-multipart
+uvicorn[standard]
+beautifulsoup4
+lxml
+resend
+jinja2
+googletrans==4.0.0-rc1

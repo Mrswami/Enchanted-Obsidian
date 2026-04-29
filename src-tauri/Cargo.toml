@@ -35,3 +35,4 @@ dirs-next = "2"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 dotenvy = "0.15"
 futures = "0.3"
+base64 = "0.22"

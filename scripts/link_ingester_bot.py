@@ -10,6 +10,7 @@ from bs4 import BeautifulSoup
 import google.generativeai as genai
 import json
 from datetime import datetime
+from webhook_bridge import TEZCAT_Webhook
 
 load_dotenv()
 
@@ -123,6 +124,7 @@ total_scrape_duration = 0.0
 intents = discord.Intents.default()
 intents.message_content = True
 client = discord.Client(intents=intents)
+webhook = TEZCAT_Webhook()
 
 async def trigger_shadow_recovery(client):
     """Manually triggers a scan of recent history to find missed links."""
@@ -152,6 +154,7 @@ async def trigger_shadow_recovery(client):
 @client.event
 async def on_ready():
     print(f'// SOVEREIGN NODE ONLINE as {client.user}')
+    webhook.send_event("NODE_ONLINE", "INFO", f"Enchanted Node ({client.user}) is now active.")
     await trigger_shadow_recovery(client)
 
 async def process_message_logic(message, is_catchup=False):
@@ -244,7 +247,17 @@ async def on_message(message):
 
     if message.content.strip() == '/reboot':
         await message.channel.send("// ⚠️ **REBOOTING NODE...** Process terminating.")
+        webhook.send_event("NODE_REBOOT", "WARN", "User triggered remote reboot.")
         sys.exit(1) # Exit with error code to signal potential monitor restart if configured
+
+    if message.content.strip() == '/ping_teams':
+        await message.channel.send("// 📡 **TESTING TEAMS BRIDGE...**")
+        success = webhook.send_event("MANUAL_TEST", "INFO", f"Test triggered by {message.author} via Discord.")
+        if success:
+            await message.channel.send("// ✅ **BRIDGE ACTIVE.** Check Microsoft Teams.")
+        else:
+            await message.channel.send("// ❌ **BRIDGE FAILED.** Check bot logs or .env configuration.")
+        return
 
     if message.content.strip() == '/stats':
         uptime = (time.time() - session_start_time) / 3600
@@ -260,4 +273,8 @@ if __name__ == '__main__':
         print("// ERROR: TOKEN MISSING")
     else:
         print(f"// VAULT: {VAULT_DIR}")
-        client.run(TOKEN)
+        try:
+            client.run(TOKEN)
+        except Exception as e:
+            webhook.send_event("NODE_CRASH", "CRITICAL", f"Fatal Bot Exception: {str(e)}")
+            raise e

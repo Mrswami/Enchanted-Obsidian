@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  enchanted-bot:
+    build: .
+    container_name: enchanted-bot
+    restart: always
+    # Pass .env variables to the container
+    env_file: .env
+    volumes:
+      # Map your host vault directory to the container workspace
+      # On Windows, this is C:\Users\freem\OneDrive\Documents\EnchantedObsidian
+      # On Linux/Pi, you would update this path to your local vault folder.
+      - ${ENCHANTED_VAULT_DIR}:/vault
+    environment:
+      # Override VAULT_DIR to point to the container's internal mount point
+      - ENCHANTED_VAULT_DIR=/vault
+    # Ensure logs are captured correctly
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Optional: Automatic updates for your containers
+  watchtower:
+    image: containrrr/watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --interval 3600 --cleanup
