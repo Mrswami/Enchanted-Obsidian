@@ -1,33 +1,47 @@
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap');
 
 :root {
-  /* 2026 Vibranium Nebula Palette */
-  --bg-void: #020202;         /* The deepest black */
-  --bg-surface: #0a0a0c;      /* Slightly lifted carbon */
-  --bg-raised: #111114;       /* Glass elevation */
-  --bg-hover: #1a1a20;
+  /* 2026 Carbon Nebula Palette - Refracted */
+  --bg-void: #010103;         /* Deepest Void */
+  --bg-surface: rgba(10, 10, 14, 0.7); /* Refractive Carbon */
+  --bg-raised: rgba(20, 20, 25, 0.8);  /* Elevated Glass */
+  --bg-hover: rgba(30, 30, 40, 0.9);
   
-  --border: #1a1a1f;          /* Muted obsidian */
-  --border-active: #7c3aed;   /* Vibranium Purple */
-  --border-gemini: #22d3ee;   /* Gemini Teal */
+  --border: rgba(255, 255, 255, 0.05); /* Ghost Border */
+  --border-active: #8b5cf6;            /* Power Stone Purple */
+  --border-teal: #22d3ee;              /* AI Core Teal */
   
-  --accent: #8b5cf6;          /* Power Stone Purple */
-  --accent-glow: rgba(139, 92, 246, 0.3);
-  --teal: #22d3ee;            /* AI Core Teal */
-  --teal-glow: rgba(34, 211, 238, 0.2);
+  --accent: #8b5cf6;          
+  --accent-glow: rgba(139, 92, 246, 0.5);
+  --teal: #22d3ee;            
+  --teal-glow: rgba(34, 211, 238, 0.4);
+  --emerald: #10b981;
+  --emerald-glow: rgba(16, 185, 129, 0.4);
   
-  --text-main: #f8fafc;
+  --text-main: #f1f5f9;
   --text-dim: #94a3b8;
   --text-muted: #475569;
   
-  /* Layout Sizing - Optimized for Pillar Dominance */
-  --sidebar-w: 240px;         /* Compressed for real estate */
-  --context-w: 260px;         /* Tactical width */
-  --header-h: 44px;
-  
-  /* Fonts */
-  --font-mono: 'JetBrains Mono', monospace;
-  --font-sans: 'Inter', system-ui, sans-serif;
+  /* Motion Tokens */
+  --transition-fluid: all 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+  --transition-snappy: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Cinematic Keyframes ── */
+@keyframes radial-wipe {
+  0% { clip-path: circle(0% at 50% 50%); }
+  100% { clip-path: circle(150% at 50% 50%); }
+}
+
+@keyframes nebula-pulse {
+  0% { box-shadow: 0 0 20px rgba(34, 211, 238, 0.1); }
+  50% { box-shadow: 0 0 40px rgba(34, 211, 238, 0.2); }
+  100% { box-shadow: 0 0 20px rgba(34, 211, 238, 0.1); }
+}
+
+@keyframes sentinel-breathe {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.2); }
 }
 
 .mobile-only { display: none !important; }
@@ -45,7 +59,7 @@
 }
 
 body {
-  background-color: var(--bg-deep);
+  background-color: var(--bg-void);
   color: var(--text-main);
   font-family: var(--font-sans);
   overflow: hidden;
@@ -60,12 +74,28 @@ body {
   height: 100vh;
   width: 100vw;
   overflow: hidden;
+  background-color: var(--bg-void);
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(139, 92, 246, 0.05) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(34, 211, 238, 0.05) 0px, transparent 50%);
+}
+
+.view-transition {
+  animation: radial-wipe 0.8s cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 .app-main {
   display: flex;
   flex: 1;
-  min-height: 0; /* Important for flex-child scrolling */
+  min-height: 0; /* Critical for flex-child scrolling */
+  overflow: hidden;
+}
+
+.home-view {
+  flex: 1;
+  overflow-y: auto;
+  padding: 40px;
+  height: 100%;
 }
 
 /* ── Sidebar & Navigation ── */
@@ -602,6 +632,17 @@ body {
 
 .status-dot.saved { background: var(--teal); box-shadow: 0 0 8px var(--teal-glow); }
 .status-dot.saving { background: var(--accent); animation: pulse-purple 1s infinite; }
+.status-dot.sealed { 
+  background: #a855f7; /* Ironclad Violet */
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+.status-dot.sealed:hover {
+  transform: scale(1.3);
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.8);
+}
 
 @keyframes pulse-purple {
   0% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.4); }
@@ -629,6 +670,25 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.sentinel-core {
+  width: 10px;
+  height: 10px;
+  background: var(--teal);
+  border-radius: 50%;
+  box-shadow: 0 0 10px var(--teal-glow);
+  animation: sentinel-breathe 4s infinite ease-in-out;
+  position: relative;
+}
+
+.sentinel-core::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border: 1px solid var(--teal);
+  border-radius: 50%;
+  opacity: 0.2;
 }
 
 .status-label {
@@ -916,8 +976,8 @@ body {
 
 .sector-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
 }
 
 @media (max-width: 1024px) {
@@ -931,18 +991,18 @@ body {
 }
 
 .sector-card {
-  background: var(--bg-raised);
+  background: var(--bg-surface);
+  backdrop-filter: blur(20px);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 16px;
+  border-radius: 16px;
+  padding: 24px;
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 20px;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: var(--transition-fluid);
   position: relative;
   overflow: hidden;
-  min-width: 180px; /* Force minimum size in scroll overflow */
 }
 
 .sector-card::after {
@@ -950,7 +1010,7 @@ body {
   position: absolute;
   top: 0;
   left: 0;
-  width: 3px;
+  width: 4px;
   height: 100%;
   background: var(--accent-color);
   box-shadow: 0 0 15px var(--accent-color);
@@ -960,35 +1020,87 @@ body {
   background: var(--bg-hover);
   border-color: var(--accent-color);
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-}
-
-.sector-icon {
-  font-size: 24px;
-  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.2));
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
 }
 
 .sector-info {
   display: flex;
   flex-direction: column;
+  gap: 6px;
+  flex: 1;
 }
 
 .sector-label {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  color: var(--text-dim);
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: var(--text-main);
+  text-transform: uppercase;
 }
 
 .sector-status {
-  font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 0.6rem;
+  font-weight: 700;
   color: var(--accent-color);
-  letter-spacing: 0.05em;
-  margin-top: 2px;
-  font-weight: 500;
+  letter-spacing: 1px;
+  opacity: 0.8;
 }
+
+.sector-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-left: 16px;
+  padding-left: 16px;
+  border-left: 1px solid var(--border);
+}
+
+.warp-btn {
+  width: 28px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0.4;
+}
+
+.veil-btn.veiled {
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.warp-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--accent-color);
+  opacity: 1;
+  transform: scale(1.1);
+  box-shadow: 0 0 15px var(--accent-color);
+}
+
+.sector-card:hover .warp-btn {
+  opacity: 0.7;
+}
+
+.sector-icon {
+  font-size: 2rem;
+  width: 58px;
+  height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.3));
+}
+
 
 /* ── SIM Fallout Alerts ── */
 .sim-alert {

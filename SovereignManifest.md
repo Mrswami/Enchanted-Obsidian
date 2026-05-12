@@ -1,4 +1,4 @@
-# 🕋 Sovereign Manifest: The Smoking Mirror (TEZC Edition)
+# 🕋 Sovereign Manifest: Enchanted Obsidian Edition
 
 This document archives the structural and aesthetic refactors that transformed **Enchanted Obsidian** into a high-velocity, self-organizing **Sovereign Intelligence Node.**
 
@@ -42,9 +42,7 @@ A premium, natively silent entry points for Windows.
 
 ---
 
-## 🌚 6. The TEZCAT Protocol (Branding)
-Internal branding has been anchored in the **Smoking Mirror (Tezcatlipoca)** mythology.
-*   **Title**: officially `TEZCAT // ENCHANTED OBSIDIAN`.
+*   **Title**: officially `ENCHANTED OBSIDIAN`.
 *   **Meaning**: Transitioned the app from a simple "Note Vault" to an **Omnipresent Mirror of Providence.**
 
 ---

@@ -10,6 +10,7 @@ use std::fs;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager, State};
 use tokio::sync::Mutex;
+use sha2::{Sha256, Digest};
 
 // ─── App State ──────────────────────────────────────────────────────────────
 
@@ -407,6 +408,149 @@ async fn get_ingestion_manifest(
     Ok(json)
 }
 
+/// Generates a SHA-256 "Ironclad Seal" for a note.
+#[tauri::command]
+async fn seal_note(state: State<'_, AppState>, path: String) -> Result<String, String> {
+    let content = fs::read_to_string(&path).map_err(|e| e.to_string())?;
+    
+    let mut hasher = Sha256::new();
+    hasher.update(content.as_bytes());
+    let result = hasher.finalize();
+    let hash_hex = hex::encode(result);
+    
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+
+    // In a real-world scenario, we'd send this to Azure HSM for signing.
+    // For EO-2026-ALPHA, we notarize it in a local hidden record.
+    let dir = state.notes_dir.lock().await.clone();
+    let notary_path = std::path::PathBuf::from(dir).join(".ironclad_notary.json");
+    
+    let mut notary_data: HashMap<String, serde_json::Value> = if notary_path.exists() {
+        let existing = fs::read_to_string(&notary_path).unwrap_or_default();
+        serde_json::from_str(&existing).unwrap_or_default()
+    } else {
+        HashMap::new()
+    };
+
+    notary_data.insert(path, serde_json::json!({
+        "hash": hash_hex,
+        "sealed_at": now,
+        "status": "SEALED",
+        "asset_id": format!("EO-{}", &hash_hex[..8].to_uppercase())
+    }));
+
+    fs::write(&notary_path, serde_json::to_string_pretty(&notary_data).unwrap_or_default())
+        .map_err(|e| e.to_string())?;
+
+    Ok(hash_hex)
+}
+
+/// Retrieves the "Ironclad Seal" status for a specific file.
+#[tauri::command]
+async fn get_seal_status(state: State<'_, AppState>, path: String) -> Result<Option<serde_json::Value>, String> {
+    let dir = state.notes_dir.lock().await.clone();
+    let notary_path = std::path::PathBuf::from(dir).join(".ironclad_notary.json");
+    
+    if !notary_path.exists() {
+        return Ok(None);
+    }
+
+    let existing = fs::read_to_string(&notary_path).map_err(|e| e.to_string())?;
+    let notary_data: HashMap<String, serde_json::Value> = serde_json::from_str(&existing).map_err(|e| e.to_string())?;
+    
+    Ok(notary_data.get(&path).cloned())
+}
+
+/// Dispatches an alert to the Discord Nerve (via Azure Function).
+#[tauri::command]
+async fn trigger_nerve_alert(
+    event_type: String,
+    asset_id: String,
+    message: String,
+    status: String,
+) -> Result<(), String> {
+    // Note: In a production environment, we'd pull the Azure URL from a config.
+    // For EO-2026-ALPHA, we assume the Azure Function is deployed.
+    let client = reqwest::Client::new();
+    let payload = serde_json::json!({
+        "event_type": event_type,
+        "asset_id": asset_id,
+        "message": message,
+        "status": status
+    });
+
+    // Replace with your actual Azure Function URL once deployed
+    let azure_url = "https://enchanted-obsidian-nerve.azurewebsites.net/api/NerveAlert";
+
+    let _ = client.post(azure_url)
+        .json(&payload)
+        .send()
+        .await;
+
+    Ok(())
+}
+
+/// Toggles the visibility of a project on the public portfolio website.
+#[tauri::command]
+async fn update_portfolio_visibility(projectId: String, visible: bool) -> Result<(), String> {
+    let portfolio_path = "C:\\Users\\freem\\CursorAntiG\\Sovereign_Nexus\\Dashboard\\public_portfolio\\projects.json";
+    let content = std::fs::read_to_string(portfolio_path).map_err(|e| format!("// FS ERROR: {}", e))?;
+    let mut json: serde_json::Value = serde_json::from_str(&content).map_err(|e| format!("// JSON ERROR: {}", e))?;
+
+    let mut found = false;
+    if let Some(projects) = json.get_mut("projects").and_then(|p| p.as_array_mut()) {
+        for project in projects {
+            if project.get("id").and_then(|v| v.as_str()) == Some(&projectId) {
+                project["visible"] = serde_json::Value::Bool(visible);
+                found = true;
+                break;
+            }
+        }
+    }
+
+    if !found {
+        return Err(format!("// ERROR: Project ID '{}' not found in portfolio manifest.", projectId));
+    }
+
+    let updated_content = serde_json::to_string_pretty(&json).map_err(|e| format!("// SERIALIZE ERROR: {}", e))?;
+    std::fs::write(portfolio_path, updated_content).map_err(|e| format!("// WRITE ERROR: {}", e))?;
+    
+    Ok(())
+}
+
+/// Warps the user to a specific project workspace in Cursor.
+#[tauri::command]
+async fn open_project_workspace(path: String) -> Result<(), String> {
+    let workspace_path = std::path::Path::new(&path);
+    if !workspace_path.exists() {
+        return Err(format!("// ERROR: Workspace path does not exist: {}", path));
+    }
+
+    // Use absolute path for reliability in Tauri/Windows context
+    let cursor_bin = "C:\\Users\\freem\\AppData\\Local\\Programs\\cursor\\resources\\app\\bin\\cursor.cmd";
+
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("cmd")
+            .args(["/C", cursor_bin, "--new-window", &path])
+            .spawn()
+            .map_err(|e| format!("// WARP FAILED: {}", e))?;
+    }
+    
+    #[cfg(not(target_os = "windows"))]
+    {
+        std::process::Command::new("cursor")
+            .args(["--new-window", &path])
+            .spawn()
+            .map_err(|e| format!("// WARP FAILED: {}", e))?;
+    }
+    
+    Ok(())
+}
+
 /// Asks Gemini a question with full system context.
 #[tauri::command]
 async fn ask_ai(
@@ -502,6 +646,11 @@ pub fn run() {
             split_note,
             merge_notes,
             get_ingestion_manifest,
+            seal_note,
+            get_seal_status,
+            trigger_nerve_alert,
+            open_project_workspace,
+            update_portfolio_visibility,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

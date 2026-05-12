@@ -1,4 +1,5 @@
 import React from 'react'
+import { invoke } from '@tauri-apps/api/core'
 import ChessPulseDashboard from './ChessPulseDashboard'
 import MissionControlDashboard from './MissionControlDashboard'
 
@@ -19,12 +20,37 @@ const NoteGrid = ({ files, activeSector, setActiveSector, manifest, onOpenNote, 
 
   // Define static project sectors for quick navigation/status
   const sectors = [
-    { id: 'enchanted', label: 'VAULT SECTOR', icon: '🕋', status: 'ACTIVE', color: 'var(--accent)' },
-    { id: 'missioncontrol', label: 'MISSION CTRL', icon: '🚀', status: 'ACTIVE', color: 'var(--teal)' },
-    { id: 'chesspulse', label: 'CHESSPULSE', icon: '♟️', status: 'INGESTING', color: 'var(--teal)' },
-    { id: 'pixelninja', label: 'PIXELNINJA', icon: '🥷', status: 'OFFLINE', color: 'var(--text-muted)' },
-    { id: 'gaming', label: 'LORE FORGE', icon: '🏰', status: 'SYNCING', color: 'var(--lime)' }
+    { id: 'enchanted', label: 'VAULT SECTOR', icon: '🕋', status: 'ACTIVE', color: 'var(--accent)', path: 'C:\\Users\\freem\\CursorAntiG\\Sovereign_Nexus\\Dashboard', repo: 'https://github.com/Mrswami/Enchanted-Obsidian', portfolioId: 'ironclad-pipeline' },
+    { id: 'chesspulse', label: 'CHESSUP PRO', icon: '♟️', status: 'ACTIVE', color: 'var(--teal)', path: 'C:\\Users\\freem\\CursorAntiG\\Sovereign_Nexus\\Projects\\ChessupPro', repo: 'https://github.com/Mrswami/chessup-pro-mobile', portfolioId: 'chesspulse' },
+    { id: 'atxletsplay', label: 'ATX LETS PLAY', icon: '🎮', status: 'LIVE', color: 'var(--emerald)', path: 'C:\\Users\\freem\\CursorAntiG\\Sovereign_Nexus\\Projects\\atxLetsPlay', repo: 'https://github.com/Mrswami/atxLetsPlay', portfolioId: 'atxletsplay' },
+    { id: 'pixelninja', label: 'PIXELNINJA', icon: '🥷', status: 'OFFLINE', color: 'var(--text-dim)', path: 'C:\\Users\\freem\\CursorAntiG\\Sovereign_Nexus\\Projects\\MediaMGMT', portfolioId: 'pixelninja' },
+    { id: 'node-nod', label: 'NODE NOD', icon: '📡', status: 'SYNCING', color: 'var(--accent)', path: 'C:\\Users\\freem\\CursorAntiG\\Sovereign_Nexus\\Projects\\NodeNod', repo: 'https://github.com/Mrswami/nodeNod', portfolioId: 'node-nod' },
+    { id: 'sentinel', label: 'SENTINEL QA', icon: '🛡️', status: 'STANDBY', color: 'var(--indigo)', path: 'C:\\Users\\freem\\CursorAntiG\\Sovereign_Nexus\\Dashboard\\tests', portfolioId: 'sentinel-qa' }
   ]
+
+  const [visibilityStates, setVisibilityStates] = React.useState({})
+
+  const handleWarp = async (e, path) => {
+    e.stopPropagation()
+    try {
+      await invoke('open_project_workspace', { path })
+    } catch (err) {
+      console.error('Warp failed:', err)
+    }
+  }
+
+  const handleToggleVisibility = async (e, portfolioId) => {
+    e.stopPropagation()
+    const currentState = visibilityStates[portfolioId] !== false // Default to true
+    const newState = !currentState
+    
+    try {
+      await invoke('update_portfolio_visibility', { projectId: portfolioId, visible: newState })
+      setVisibilityStates(prev => ({ ...prev, [portfolioId]: newState }))
+    } catch (err) {
+      console.error('Visibility toggle failed:', err)
+    }
+  }
 
   // SIM Logic: Detect failures
   const failedIngestions = Object.values(manifest || {}).filter(v => v.status === 'FAILED')
@@ -57,6 +83,33 @@ const NoteGrid = ({ files, activeSector, setActiveSector, manifest, onOpenNote, 
               <div className="sector-info">
                 <div className="sector-label">{s.label}</div>
                 <div className="sector-status">{s.status}</div>
+              </div>
+              <div className="sector-actions">
+                {s.portfolioId && (
+                  <button 
+                    className={`warp-btn veil-btn ${visibilityStates[s.portfolioId] === false ? 'veiled' : ''}`} 
+                    onClick={(e) => handleToggleVisibility(e, s.portfolioId)}
+                    title={visibilityStates[s.portfolioId] === false ? "Project is VEILED (Hidden from Portfolio)" : "Project is VISIBLE on Portfolio"}
+                  >
+                    {visibilityStates[s.portfolioId] === false ? '👁️‍🗨️' : '👁️'}
+                  </button>
+                )}
+                {s.repo && (
+                  <button 
+                    className="warp-btn repo-btn" 
+                    onClick={(e) => { e.stopPropagation(); window.open(s.repo, '_blank'); }}
+                    title="Open GitHub Repository"
+                  >
+                    📦
+                  </button>
+                )}
+                <button 
+                  className="warp-btn" 
+                  onClick={(e) => handleWarp(e, s.path)}
+                  title="Warp to Antigravity Workspace"
+                >
+                  🚀
+                </button>
               </div>
             </div>
           ))}

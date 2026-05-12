@@ -2,7 +2,7 @@
 ### // Sovereign Intelligence Node: Asset ID EO-2026-ALPHA
 
 ## 1. Executive Summary
-Enchanted Obsidian is a high-velocity cognitive vault designed for the "Sovereign Intelligence" mission. It serves as a unified interface for knowledge ingestion, code management, and operational command, utilizing local-first storage (Tauri) and cloud-ready synchronization (Firebase) to ensure data ownership and rapid retrieval.
+Enchanted Obsidian is a high-velocity cognitive vault designed fo r the "Sovereign Intelligence" mission. It serves as a unified interface for knowledge ingestion, code management, and operational command, utilizing local-first storage (Tauri) and cloud-ready synchronization (Firebase) to ensure data ownership and rapid retrieval.
 
 ## 2. Core Components
 *   **The Vault (Knowledge Layer)**: A Markdown-based hierarchical note system designed for "Atomic Intelligence." Every note is treated as a discrete unit of IP, ready for cryptographic sealing.

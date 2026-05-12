@@ -44,10 +44,10 @@ const MissionControl = () => {
     <div className="mission-control-container">
       <header className="mission-header">
         <div className="header-left">
-          <div className="mc-logo">A.R.C</div>
+          <div className="mc-logo">EO</div>
           <div className="mc-titles">
-            <h1>Automated Resource Command</h1>
-            <p className="mc-subtitle">Unified Repository Node // Multi-Cloud Security</p>
+            <h1>Enchanted Obsidian // Mission Control</h1>
+            <p className="mc-subtitle">Sovereign Intelligence Node // Asset ID EO-2026-ALPHA</p>
           </div>
         </div>
         <div className="header-right">
@@ -75,8 +75,8 @@ const MissionControl = () => {
               AZURE HEALTH
             </button>
             <button className="mc-btn cicd" onClick={handleCicd}>
-              <span className="icon">🚀</span>
-              TRIGGER CI/CD
+              <span className="icon">🛡️</span>
+              IRONCLAD SEAL
             </button>
           </div>
         </section>

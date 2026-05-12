@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import Sidebar from './components/Sidebar'
@@ -23,7 +23,9 @@ function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isContextOpen, setIsContextOpen] = useState(false)
   const [manifest, setManifest] = useState({})
-  const [activeSector, setActiveSector] = useState('ALL') // 'ALL' | 'enchanted' | 'chesspulse' | etc.
+  const [activeSector, setActiveSector] = useState('ALL') 
+  const [isTransitioning, setIsTransitioning] = useState(false)
+  const [sealStatus, setSealStatus] = useState(null) // { hash, sealed_at, status, asset_id }
   const saveTimer = useRef(null)
 
   const handleGoHome = useCallback(() => {
@@ -106,8 +108,18 @@ function App() {
       setActiveFile(file)
       setNoteContent(content)
       setSaveStatus('saved')
+      
+      // Check Ironclad Seal Status
+      try {
+        const seal = await invoke('get_seal_status', { path: file.path })
+        setSealStatus(seal)
+      } catch (err) {
+        console.error('Failed to get seal status:', err)
+        setSealStatus(null)
+      }
+
       setView('editor')
-      setIsSidebarOpen(false) // Close sidebar on mobile after choosing a file
+      setIsSidebarOpen(false) 
       setIsContextOpen(false)
     } catch (err) {
       console.error('Failed to open note:', err)
@@ -124,12 +136,37 @@ function App() {
       try {
         await invoke('save_note', { path: activeFile.path, content: value })
         setSaveStatus('saved')
+        setSealStatus(null) // Reset seal status on change until re-sealed
         refreshIndex()
       } catch (err) {
         console.error('Auto-save failed:', err)
       }
     }, 1500)
   }, [activeFile, refreshIndex])
+
+  // ── Seal Note (Ironclad Notary) ────────────────────────────────────
+  const sealNote = useCallback(async () => {
+    if (!activeFile) return
+    try {
+      setSaveStatus('saving')
+      await invoke('seal_note', { path: activeFile.path })
+      const newSeal = await invoke('get_seal_status', { path: activeFile.path })
+      setSealStatus(newSeal)
+      setSaveStatus('saved')
+
+      // Dispatch Nerve Alert
+      if (newSeal) {
+        await invoke('trigger_nerve_alert', {
+          eventType: 'IRONCLAD_SEAL',
+          assetId: newSeal.asset_id,
+          message: `Note "${activeFile.name}" has been notarized in the Sovereign Vault.`,
+          status: 'SEALED'
+        })
+      }
+    } catch (err) {
+      console.error('Sealing failed:', err)
+    }
+  }, [activeFile])
 
   // ── Create New Note ───────────────────────────────────────────────
   const createNote = useCallback(async (title, initialContent = null) => {
@@ -232,11 +269,15 @@ function App() {
 
   // ── View Management ───────────────────────────────────────────────
   const handleSwitchView = useCallback((view) => {
-    setCurrentView(view)
-    if (view === 'mission-control') {
-      setActiveFile(null)
-      setNoteContent('')
-    }
+    setIsTransitioning(true)
+    setTimeout(() => {
+      setCurrentView(view)
+      if (view === 'mission-control') {
+        setActiveFile(null)
+        setNoteContent('')
+      }
+      setTimeout(() => setIsTransitioning(false), 50)
+    }, 400) // Halfway through the 800ms wipe
   }, [])
 
   // ── AI Command Handler ───────────────────────────────────────────
@@ -293,16 +334,8 @@ function App() {
           </svg>
         </button>
 
-        <div className="titlebar-logo" style={{ cursor: 'pointer' }} onClick={handleGoHome}>
-          <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
-            <path d="M8 1L2 5L8 15L14 5L8 1Z" fill="url(#prism-logo-gradient)" />
-            <defs>
-              <linearGradient id="prism-logo-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="var(--accent)" />
-                <stop offset="100%" stopColor="var(--teal)" />
-              </linearGradient>
-            </defs>
-          </svg>
+        <div className="titlebar-logo" style={{ cursor: 'pointer' }} onClick={() => handleSwitchView('vault')}>
+          <div className="sentinel-core" />
           <span className="logo-text-glam mobile-hide">ENCHANTED OBSIDIAN</span>
         </div>
         
@@ -314,9 +347,13 @@ function App() {
           {activeFile && (
             <div className="status-group">
               <span className="titlebar-path status-label">
-                {saveStatus === 'saving' ? 'SYNCING' : 'SECURE'}
+                {saveStatus === 'saving' ? 'SYNCING' : (sealStatus ? `SEALED [${sealStatus.asset_id}]` : 'UNVERIFIED')}
               </span>
-              <div className={`status-dot ${saveStatus}`} />
+              <div 
+                className={`status-dot ${saveStatus} ${sealStatus ? 'sealed' : ''}`} 
+                onClick={sealNote}
+                title={sealStatus ? `Sealed on ${new Date(sealStatus.sealed_at * 1000).toLocaleString()}` : 'Click to Seal (Notarize)'}
+              />
             </div>
           )}
           
@@ -331,7 +368,7 @@ function App() {
         </div>
       </header>
 
-      <div className="app-main">
+      <div className={`app-main ${isTransitioning ? 'view-transition' : ''}`}>
         {/* Backdrop for closing mobile panels */}
         {(isSidebarOpen || isContextOpen) && (
           <div 

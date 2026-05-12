@@ -1,12 +1,13 @@
-# Workspace Identity: nodeNod
+# Workspace Identity: Enchanted Obsidian
+### // Sub-Project: nodeNod
 
-**Current Mission**: Nodenod Architecture & Sovereign Synchronization.
+**Current Mission**: Sovereign Intelligence Node Development (EnchObs).
 **Physical Location**: `C:\Users\freem\CursorAntiG\EnchantedObsidian`
 
 ## Core Protocols
-1. **Name**: This is the **nodeNod** workspace. Disregard the folder name "EnchantedObsidian" for high-level communication.
-2. **Focus**: Bridging AI research (Obsidian), schedule synchronization (W2W), and the Ironclad dashboard.
-3. **Primary Entry**: Use the **TEZCAT** launcher on the Desktop.
+1. **Name**: This is the **Enchanted Obsidian** workspace.
+2. **Context**: nodeNod is an active sub-project managed within this vault, but the overall architecture is EnchObs.
+3. **Primary Entry**: Use the **EnchantedVault.vbs** launcher on the Desktop.
 
 ---
-*Created on 2026-04-29 to prevent AI 'Gaslighting' incidents.*
+*Updated on 2026-04-29 to align with the Sovereign Intelligence Manifest.*

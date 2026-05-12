@@ -67,7 +67,7 @@ function NewNoteModal({ onConfirm, onCancel }) {
 }
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
-export default function Sidebar({ files, activeFile, currentSubPath, onOpenNote, onCreateNote, onDeleteNote, onRenameNote, onNavigateFolder, onOpenScanner }) {
+export default function Sidebar({ files, activeFile, currentSubPath, currentView, onOpenNote, onCreateNote, onDeleteNote, onRenameNote, onNavigateFolder, onOpenScanner, onSwitchView }) {
   const [showModal, setShowModal] = useState(false)
   const [hoveredPath, setHoveredPath] = useState(null)
   const [editingPath, setEditingPath] = useState(null)
